@@ -12,3 +12,5 @@ lag_log.csv
 site/*
 build
 .idea
+venv-*
+.pytest_cache
