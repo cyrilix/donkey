@@ -26,31 +26,32 @@ class AngleProcessorMiddleLine:
     <--------------- image array ------------->
     """
 
-    def __init__(self, out_zone_in_percent=20, central_zone_in_percent=20):
+    def __init__(self, image_resolution=(120, 160), out_zone_in_percent=20, central_zone_in_percent=20):
         self._out_in_percent = out_zone_in_percent
         self._central_zone_in_percent = central_zone_in_percent
+        self._resolution = image_resolution
 
-    def estimate(self, centroids, image_size=128):
+    def estimate(self, centroids):
         logger.debug("Angle estimation for centroids: %s", centroids)
 
         for centroid in centroids:
-            return self._compute_angle_for_centroid(image_size, centroid[0])
+            return self._compute_angle_for_centroid(centroid[0])
 
         logger.debug("None line found to process data")
         return 0.0
 
-    def _compute_angle_for_centroid(self, columns, line):
+    def _compute_angle_for_centroid(self, line):
         # Position in percent from the left of the middle line
-        pos_in_percent = line * 100 / columns
+        pos_in_percent = line * 100 / self._resolution[1]
         logger.debug("Line position from left = %s%%", pos_in_percent)
 
         # convert between -1 and 1
         angle = (pos_in_percent * 2 - 100) / 100
 
         logger.debug("Computed angle: %s", angle)
-        out_zone_delta = self._out_in_percent * 100 / columns / 100
+        out_zone_delta = self._out_in_percent * 100 / self._resolution[1] / 100
         logger.debug("Outer zone delta: %s", out_zone_delta)
-        middle_zone_delta = self._central_zone_in_percent * 100 / columns / 100
+        middle_zone_delta = self._central_zone_in_percent * 100 / self._resolution[1] / 100
         logger.debug("Middle zone delta: %s", out_zone_delta)
 
         if angle < -1.0 + out_zone_delta:
@@ -119,7 +120,7 @@ class ImagePilot:
             cv2.drawContours(img, shapes[0:1], -1, (240, 0, 0), 3)
 
         logger.debug("Centroids founds: %s", centroids)
-        return self._compute_angle_from_line(centroids=centroids, image_size=img.shape[1])
+        return self._compute_angle_from_line(centroids=centroids)
         # self._display_car_direction(img)
 
     def _threshold(self, img):
@@ -149,5 +150,5 @@ class ImagePilot:
         cv2.line(img, (x, 0), (x, rows), (0, 255, 0), 1)
         return img
 
-    def _compute_angle_from_line(self, centroids, image_size):
-        return self._angle_estimator.estimate(centroids, image_size=image_size)
+    def _compute_angle_from_line(self, centroids):
+        return self._angle_estimator.estimate(centroids)
