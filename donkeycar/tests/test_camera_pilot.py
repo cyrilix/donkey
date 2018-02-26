@@ -1,12 +1,14 @@
 import cv2
 import pytest
 
-from donkeycar.parts.camera_pilot import ImagePilot, FIXED_THROTTLE, AngleProcessorMiddleLine
+from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
+    ThrottleControllerFixedSpeed
 
 
 @pytest.fixture
 def pilot():
-    return ImagePilot(AngleProcessorMiddleLine(image_resolution=(120, 160)))
+    return ImagePilot(angle_estimator=AngleProcessorMiddleLine(image_resolution=(120, 160)),
+                      throttle_controller=ThrottleControllerFixedSpeed(throttle_value=0.1))
 
 
 class TestDrive:
@@ -15,14 +17,14 @@ class TestDrive:
         img = self._load_img('straight_line_1.jpg')
         angle, throttle = pilot.run(img)
 
-        assert throttle is FIXED_THROTTLE
+        assert throttle == 0.1
         assert 0.1 >= angle
 
     def test_turn_right(self, pilot):
         img = self._load_img('turn_right.jpg')
 
         angle, throttle = pilot.run(img)
-        assert throttle is FIXED_THROTTLE
+        assert throttle == 0.1
         assert 0.9 >= angle >= 0.2
 
     @staticmethod
@@ -69,3 +71,10 @@ class TestAngleEstimatorMiddleLine:
         centroids = [(155, 0)]
         angle = angle_processor.estimate(centroids)
         assert angle == 1.0
+
+
+class TestThrottleControllerFixedSpeed:
+
+    def test_run(self):
+        assert ThrottleControllerFixedSpeed(throttle_value=0.1).run([]) == 0.1
+        assert ThrottleControllerFixedSpeed(throttle_value=0.8).run([]) == 0.8

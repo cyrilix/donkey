@@ -16,7 +16,7 @@ import donkeycar as dk
 from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
 # import parts
 from donkeycar.parts.camera import PiCamera
-from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine
+from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed
 from donkeycar.parts.controller import LocalWebController
 from donkeycar.parts.datastore import TubHandler
 from donkeycar.parts.transform import Lambda
@@ -65,7 +65,8 @@ def drive(cfg):
     angle_processor = AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
                                                out_zone_in_percent=20,
                                                central_zone_in_percent=20)
-    camera_pilot = ImagePilot(angle_estimator=angle_processor)
+    throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED)
+    camera_pilot = ImagePilot(angle_estimator=angle_processor, throttle_controller=throttle_controller)
 
     V.add(camera_pilot, inputs=['cam/image_array'],
           outputs=['pilot/angle', 'pilot/throttle'],

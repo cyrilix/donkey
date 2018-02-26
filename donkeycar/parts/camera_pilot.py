@@ -3,8 +3,6 @@ import logging
 import cv2
 from imutils import contours
 
-FIXED_THROTTLE = 0.5
-
 logger = logging.getLogger(__name__)
 
 
@@ -69,20 +67,31 @@ class AngleProcessorMiddleLine:
         return angle
 
 
+class ThrottleControllerFixedSpeed:
+
+    def __init__(self, throttle_value=0.1):
+        self._throttle = throttle_value
+
+    def run(self, image_array):
+        return self._throttle
+
+
 class ImagePilot:
 
-    def __init__(self, angle_estimator=AngleProcessorMiddleLine(), debug=False):
+    def __init__(self, angle_estimator=AngleProcessorMiddleLine(),
+                 throttle_controller=ThrottleControllerFixedSpeed(),
+                 debug=False):
         self._angle_estimator = angle_estimator
-        self.debug = debug
-        self.threshold_limit = 160
-        self.crop_from_top = 20
+        self._throttle_controller = throttle_controller
+        self._debug = debug
+        self._threshold_limit = 160
+        self._crop_from_top = 20
 
     def shutdown(self):
         pass
 
     def run(self, image_array):
-        steering = 0
-        throttle = FIXED_THROTTLE
+        throttle = self._throttle_controller.run(image_array)
         return self.process_image_array(image_array), throttle
 
     def process_image_array(self, img):
@@ -113,7 +122,7 @@ class ImagePilot:
             centroids.append((cx, cy))
             cv2.circle(img, (cx, cy), 3, (0, 100, 100), 1)
 
-        if self.debug:
+        if self._debug:
             cv2.drawContours(img, shapes, -1, (240, 40, 100), 1)
 
             # First item is probably good item
@@ -124,15 +133,15 @@ class ImagePilot:
         # self._display_car_direction(img)
 
     def _threshold(self, img):
-        limit = self.threshold_limit
+        limit = self._threshold_limit
         binary = img.copy()
         (_, binary) = cv2.threshold(binary, limit, 255, 0, cv2.THRESH_BINARY)
         return binary
 
     def _hide_top(self, img):
         (rows, cols, _) = img.shape
-        min_rows = self.crop_from_top
-        if self.debug:
+        min_rows = self._crop_from_top
+        if self._debug:
             cv2.rectangle(img, (0, 0), (cols, min_rows), (0,), -1)
 
         # display_img(img)
