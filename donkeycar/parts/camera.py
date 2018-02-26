@@ -1,13 +1,19 @@
+import glob
+import logging
 import os
 import time
+
 import numpy as np
 from PIL import Image
-import glob
+
+logger = logging.getLogger(__name__)
+
 
 class BaseCamera:
 
     def run_threaded(self):
         return self.frame
+
 
 class PiCamera(BaseCamera):
     def __init__(self, resolution=(120, 160), framerate=20):
@@ -15,21 +21,20 @@ class PiCamera(BaseCamera):
         from picamera import PiCamera
         resolution = (resolution[1], resolution[0])
         # initialize the camera and stream
-        self.camera = PiCamera() #PiCamera gets resolution (height, width)
+        self.camera = PiCamera()  # PiCamera gets resolution (height, width)
         self.camera.resolution = resolution
         self.camera.framerate = framerate
         self.rawCapture = PiRGBArray(self.camera, size=resolution)
         self.stream = self.camera.capture_continuous(self.rawCapture,
-            format="rgb", use_video_port=True)
+                                                     format="rgb", use_video_port=True)
 
         # initialize the frame and the variable used to indicate
         # if the thread should be stopped
         self.frame = None
         self.on = True
 
-        print('PiCamera loaded.. .warming camera')
+        logger.info('PiCamera loaded.. .warming camera')
         time.sleep(2)
-
 
     def run(self):
         f = next(self.stream)
@@ -52,15 +57,15 @@ class PiCamera(BaseCamera):
     def shutdown(self):
         # indicate that the thread should be stopped
         self.on = False
-        print('stoping PiCamera')
+        logger.info('stoping PiCamera')
         time.sleep(.5)
         self.stream.close()
         self.rawCapture.close()
         self.camera.close()
 
+
 class Webcam(BaseCamera):
-    def __init__(self, resolution = (160, 120), framerate = 20):
-        import pygame
+    def __init__(self, resolution=(160, 120), framerate=20):
         import pygame.camera
 
         super().__init__()
@@ -78,12 +83,12 @@ class Webcam(BaseCamera):
         self.frame = None
         self.on = True
 
-        print('WebcamVideoStream loaded.. .warming camera')
+        logger.info('WebcamVideoStream loaded.. .warming camera')
 
         time.sleep(2)
 
     def update(self):
-        from datetime import datetime, timedelta
+        from datetime import datetime
         import pygame.image
         while self.on:
             start = datetime.now()
@@ -93,7 +98,8 @@ class Webcam(BaseCamera):
                 # self.frame = list(pygame.image.tostring(snapshot, "RGB", False))
                 snapshot = self.cam.get_image()
                 snapshot1 = pygame.transform.scale(snapshot, self.resolution)
-                self.frame = pygame.surfarray.pixels3d(pygame.transform.rotate(pygame.transform.flip(snapshot1, True, False), 90))
+                self.frame = pygame.surfarray.pixels3d(
+                    pygame.transform.rotate(pygame.transform.flip(snapshot1, True, False), 90))
 
             stop = datetime.now()
             s = 1 / self.framerate - (stop - start).total_seconds()
@@ -108,13 +114,15 @@ class Webcam(BaseCamera):
     def shutdown(self):
         # indicate that the thread should be stopped
         self.on = False
-        print('stoping Webcam')
+        logger.info('stoping Webcam')
         time.sleep(.5)
+
 
 class MockCamera(BaseCamera):
     '''
     Fake camera. Returns only a single static frame
     '''
+
     def __init__(self, resolution=(160, 120), image=None):
         if image is not None:
             self.frame = image
@@ -127,13 +135,15 @@ class MockCamera(BaseCamera):
     def shutdown(self):
         pass
 
+
 class ImageListCamera(BaseCamera):
     '''
     Use the images from a tub as a fake camera output
     '''
+
     def __init__(self, path_mask='~/d2/data/**/*.jpg'):
         self.image_filenames = glob.glob(os.path.expanduser(path_mask), recursive=True)
-    
+
         def get_image_index(fnm):
             sl = os.path.basename(fnm).split('_')
             return int(sl[0])
@@ -145,10 +155,10 @@ class ImageListCamera(BaseCamera):
         so, sorting by image index works better, but only with one path.
         '''
         self.image_filenames.sort(key=get_image_index)
-        #self.image_filenames.sort(key=os.path.getmtime)
+        # self.image_filenames.sort(key=os.path.getmtime)
         self.num_images = len(self.image_filenames)
         print('%d images loaded.' % self.num_images)
-        print( self.image_filenames[:10])
+        print(self.image_filenames[:10])
         self.i_frame = 0
         self.frame = None
         self.update()
@@ -156,10 +166,10 @@ class ImageListCamera(BaseCamera):
     def update(self):
         pass
 
-    def run_threaded(self):        
+    def run_threaded(self):
         if self.num_images > 0:
             self.i_frame = (self.i_frame + 1) % self.num_images
-            self.frame = Image.open(self.image_filenames[self.i_frame]) 
+            self.frame = Image.open(self.image_filenames[self.i_frame])
 
         return np.asarray(self.frame)
 
