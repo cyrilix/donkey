@@ -1,5 +1,4 @@
 import cv2
-import numpy
 import pytest
 
 from donkeycar.parts.camera_pilot import ImagePilot, FIXED_THROTTLE, AngleProcessorMiddleLine
@@ -11,11 +10,13 @@ def pilot():
 
 
 class TestDrive:
-    @pytest.mark.skip
+
     def test_straight_line(self, pilot):
         img = self._load_img('straight_line_1.jpg')
         angle, throttle = pilot.run(img)
-        pass
+
+        assert throttle is FIXED_THROTTLE
+        assert 0.1 >= angle
 
     def test_turn_right(self, pilot):
         img = self._load_img('turn_right.jpg')

@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class AngleProcessorMiddleLine:
-
     """
     Angle estimation from position of middle line dots
 
@@ -105,8 +104,11 @@ class ImagePilot:
             shapes.append(approx)
 
             moment = cv2.moments(contour)
-            cx = int(moment['m10'] / moment['m00'])
-            cy = int(moment['m01'] / moment['m00'])
+            mzero = moment['m00']
+            if mzero == 0.0:
+                mzero = 0.000001
+            cx = int(moment['m10'] / mzero)
+            cy = int(moment['m01'] / mzero)
             centroids.append((cx, cy))
             cv2.circle(img, (cx, cy), 3, (0, 100, 100), 1)
 
