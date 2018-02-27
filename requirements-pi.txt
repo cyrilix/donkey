@@ -1,0 +1,3 @@
+picamera
+Adafruit_PCA9685
+RPi.GPIO
