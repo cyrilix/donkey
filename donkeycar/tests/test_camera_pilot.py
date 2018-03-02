@@ -13,6 +13,19 @@ def pilot():
 
 class TestDrive:
 
+    def test_blank(self, pilot):
+        img = self._load_img('blank.jpg')
+        assert pilot.run(img) == (0.0, 0.1)
+
+    def test_on_error(self, pilot):
+        img = self._load_img('blank.jpg')
+
+        def throw_error(img):
+            raise ValueError()
+
+        pilot.__dict__['_process_image_array'] = throw_error
+        assert pilot.run(img) == (0.0, 0.0)
+
     def test_straight_line(self, pilot):
         img = self._load_img('straight_line_1.jpg')
         angle, throttle = pilot.run(img)

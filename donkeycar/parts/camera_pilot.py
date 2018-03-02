@@ -91,16 +91,21 @@ class ImagePilot:
         pass
 
     def run(self, image_array):
-        throttle = self._throttle_controller.run(image_array)
-        return self.process_image_array(image_array), throttle
+        try:
+            throttle = self._throttle_controller.run(image_array)
+            return self._process_image_array(image_array), throttle
+        except Exception:
+            logging.exception("Unexpected error")
+            return 0.0, 0.0
 
-    def process_image_array(self, img):
+    def _process_image_array(self, img):
         binarized = self._threshold(img)
         binarized = self._hide_top(binarized)
         (_, cntrs, _) = self._search_geometry(binarized)
 
         # Order from bottom to
-        (cntrs, _) = contours.sort_contours(cntrs, method='bottom-to-top')
+        if len(cntrs) > 1:
+            (cntrs, _) = contours.sort_contours(cntrs, method='bottom-to-top')
 
         shapes = []
         centroids = []
