@@ -66,7 +66,9 @@ def drive(cfg):
                                                out_zone_in_percent=20,
                                                central_zone_in_percent=20)
     throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED)
-    camera_pilot = ImagePilot(angle_estimator=angle_processor, throttle_controller=throttle_controller)
+    camera_pilot = ImagePilot(angle_estimator=angle_processor,
+                              throttle_controller=throttle_controller,
+                              debug=cfg.DEBUG_PILOT)
 
     V.add(camera_pilot, inputs=['cam/image_array'],
           outputs=['pilot/angle', 'pilot/throttle'],
