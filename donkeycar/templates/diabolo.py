@@ -15,7 +15,7 @@ from docopt import docopt
 import donkeycar as dk
 from donkeycar.parts.actuator import GpioMotor
 # import parts
-from donkeycar.parts.camera import Webcam
+from donkeycar.parts.camera import WebcamCV
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed
 from donkeycar.parts.controller import LocalWebController
 from donkeycar.parts.datastore import TubHandler
@@ -38,7 +38,7 @@ def drive(cfg):
 
     # Initialize car
     V = dk.vehicle.Vehicle()
-    cam = Webcam(resolution=cfg.CAMERA_RESOLUTION)
+    cam = WebcamCV(resolution=cfg.CAMERA_RESOLUTION)
     V.add(cam, outputs=['cam/image_array'], threaded=True)
 
     # This web controller will create a web server that is capable

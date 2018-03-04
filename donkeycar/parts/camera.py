@@ -65,6 +65,33 @@ class PiCamera(BaseCamera):
         self.camera.close()
 
 
+class WebcamCV(BaseCamera):
+    """
+    Use webcam with opencv
+    """
+
+    def __init__(self, resolution=(120, 160), framerate=20, index=0):
+        super().__init__()
+        import numpy as np
+        self.cap = cv2.VideoCapture(index)
+        self.frame = np.zeros(resolution)
+
+    def update(self):
+        while True:
+            # Capture frame-by-frame
+            ret, self.frame = self.cap.read()
+
+    def run_threaded(self):
+        return self.frame
+
+    def shutdown(self):
+        # indicate that the thread should be stopped
+        logger.info('stoping Webcam')
+        self.cap.release()
+        cv2.destroyAllWindows()
+        time.sleep(.5)
+
+
 class Webcam(BaseCamera):
     def __init__(self, resolution=(120, 160), framerate=20):
         import pygame.camera
@@ -100,7 +127,7 @@ class Webcam(BaseCamera):
                 # self.frame = list(pygame.image.tostring(snapshot, "RGB", False))
                 snapshot = self.cam.get_image()
                 snapshot1 = pygame.transform.scale(snapshot, self.resolution)
-                self.frame = self._pygame_to_cvimage(
+                self.frame = pygame.surfarray.pixels3d(
                     pygame.transform.rotate(pygame.transform.flip(snapshot1, True, False), 90))
 
             stop = datetime.now()
@@ -109,18 +136,6 @@ class Webcam(BaseCamera):
                 time.sleep(s)
 
         self.cam.stop()
-
-    @staticmethod
-    def _surface_to_string(surface):
-        """Convert a pygame surface into string"""
-        return pygame.image.tostring(surface, 'RGB')
-
-    def _pygame_to_cvimage(self, surface):
-        """Convert a pygame surface into a cv image"""
-        cv_image = cv2.CreateImageHeader(surface.get_size(), cv2.IPL_DEPTH_8U, 3)
-        image_string = self._surface_to_string(surface)
-        cv2.SetData(cv_image, image_string)
-        return cv_image
 
     def run_threaded(self):
         return self.frame
