@@ -15,7 +15,7 @@ from docopt import docopt
 import donkeycar as dk
 from donkeycar.parts.actuator import GpioMotor
 # import parts
-from donkeycar.parts.camera import PiCamera, Webcam
+from donkeycar.parts.camera import Webcam
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed
 from donkeycar.parts.controller import LocalWebController
 from donkeycar.parts.datastore import TubHandler
