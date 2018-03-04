@@ -3,6 +3,7 @@ import logging
 import os
 import time
 
+import cv2
 import numpy as np
 from PIL import Image
 
@@ -99,7 +100,7 @@ class Webcam(BaseCamera):
                 # self.frame = list(pygame.image.tostring(snapshot, "RGB", False))
                 snapshot = self.cam.get_image()
                 snapshot1 = pygame.transform.scale(snapshot, self.resolution)
-                self.frame = pygame.surfarray.pixels3d(
+                self.frame = self._pygame_to_cvimage(
                     pygame.transform.rotate(pygame.transform.flip(snapshot1, True, False), 90))
 
             stop = datetime.now()
@@ -108,6 +109,18 @@ class Webcam(BaseCamera):
                 time.sleep(s)
 
         self.cam.stop()
+
+    @staticmethod
+    def _surface_to_string(surface):
+        """Convert a pygame surface into string"""
+        return pygame.image.tostring(surface, 'RGB')
+
+    def _pygame_to_cvimage(self, surface):
+        """Convert a pygame surface into a cv image"""
+        cv_image = cv2.CreateImageHeader(surface.get_size(), cv2.IPL_DEPTH_8U, 3)
+        image_string = self._surface_to_string(surface)
+        cv2.SetData(cv_image, image_string)
+        return cv_image
 
     def run_threaded(self):
         return self.frame
