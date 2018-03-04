@@ -63,11 +63,12 @@ def drive(cfg):
 
     # Run the pilot if the mode is not user.
     angle_processor = AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
-                                               out_zone_in_percent=20,
-                                               central_zone_in_percent=20)
+                                               out_zone_in_percent=cfg.OUT_ZONE_PERCENT,
+                                               central_zone_in_percent=cfg.CENTRAL_ZONE_PERCENT)
     throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED)
     camera_pilot = ImagePilot(angle_estimator=angle_processor,
                               throttle_controller=throttle_controller,
+                              threshold_limit=cfg.THRESHOLD_LIMIT,
                               debug=cfg.DEBUG_PILOT)
 
     V.add(camera_pilot, inputs=['cam/image_array'],

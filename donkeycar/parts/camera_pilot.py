@@ -80,6 +80,7 @@ class ImagePilot:
 
     def __init__(self, angle_estimator=AngleProcessorMiddleLine(),
                  throttle_controller=ThrottleControllerFixedSpeed(),
+                 threshold_limit=160,
                  debug=False):
         self._angle_estimator = angle_estimator
         self._throttle_controller = throttle_controller
