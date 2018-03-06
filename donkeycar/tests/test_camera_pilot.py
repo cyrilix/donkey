@@ -2,7 +2,7 @@ import cv2
 import pytest
 
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
-    ThrottleControllerFixedSpeed, ThresholdController
+    ThrottleControllerFixedSpeed, ThresholdController, ThresholdValueEstimator
 
 
 @pytest.fixture
@@ -16,32 +16,31 @@ def _load_img(img):
     return cv2.imread(path)
 
 
+def _load_img_gray(img):
+    return cv2.cvtColor(_load_img(img), cv2.COLOR_RGB2GRAY)
+
+
 class TestDrive:
 
     def test_blank(self, pilot):
-        img = _load_img('blank.jpg')
-        assert pilot.run(img) == (0.0, 0.1)
+        assert pilot.run([]) == (0.0, 0.1)
+        assert pilot.run(None) == (0.0, 0.1)
 
     def test_on_error(self, pilot):
-        img = _load_img('blank.jpg')
-
-        def throw_error(img):
+        def throw_error(centroids):
             raise ValueError()
 
-        pilot.__dict__['_process_image_array'] = throw_error
-        assert pilot.run(img) == (0.0, 0.0)
+        pilot._angle_estimator.__dict__['estimate'] = throw_error
+        assert pilot.run([(10, 20)]) == (0.0, 0.0)
 
     def test_straight_line(self, pilot):
-        img = _load_img('straight_line_1.jpg')
-        angle, throttle = pilot.run(img)
+        angle, throttle = pilot.run([(75, 110), (80, 85)])
 
         assert throttle == 0.1
         assert 0.1 >= angle
 
     def test_turn_right(self, pilot):
-        img = _load_img('turn_right.jpg')
-
-        angle, throttle = pilot.run(img)
+        angle, throttle = pilot.run([(150, 150), (80, 140)])
         assert throttle == 0.1
         assert 0.9 >= angle >= 0.2
 
@@ -95,10 +94,22 @@ class TestThrottleControllerFixedSpeed:
 
 @pytest.fixture
 def threshold_controller():
-    return ThresholdController()
+    value_estimator = ThresholdValueEstimator()
+    return ThresholdController(value_estimator=value_estimator)
 
 
 class TestThresholdController:
 
     def test_straight_line(self, threshold_controller):
-        assert len(threshold_controller.run(_load_img("straight_line_1.jpg"))) > 0
+        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
+
+
+class TestThresholdValueEstimator:
+
+    def test_get_value(self):
+        img = _load_img_gray('straight_line_1.jpg')
+        value_estimator = ThresholdValueEstimator(init_value=200)
+
+        assert not value_estimator.cache_value()
+        assert value_estimator.run(img_gray=img, contours=[]) == 200
+        assert value_estimator.run(img_gray=img, contours=[(30, 100)]) == 93
