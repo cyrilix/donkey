@@ -74,6 +74,8 @@ class WebcamCV(BaseCamera):
         super().__init__()
         import numpy as np
         self.cap = cv2.VideoCapture(index)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
         self.frame = np.zeros(resolution)
 
     def update(self):
