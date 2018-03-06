@@ -2,7 +2,7 @@ import cv2
 import pytest
 
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
-    ThrottleControllerFixedSpeed
+    ThrottleControllerFixedSpeed, ThresholdController
 
 
 @pytest.fixture
@@ -11,14 +11,19 @@ def pilot():
                       throttle_controller=ThrottleControllerFixedSpeed(throttle_value=0.1))
 
 
+def _load_img(img):
+    path = "donkeycar/tests/data/" + img
+    return cv2.imread(path)
+
+
 class TestDrive:
 
     def test_blank(self, pilot):
-        img = self._load_img('blank.jpg')
+        img = _load_img('blank.jpg')
         assert pilot.run(img) == (0.0, 0.1)
 
     def test_on_error(self, pilot):
-        img = self._load_img('blank.jpg')
+        img = _load_img('blank.jpg')
 
         def throw_error(img):
             raise ValueError()
@@ -27,23 +32,18 @@ class TestDrive:
         assert pilot.run(img) == (0.0, 0.0)
 
     def test_straight_line(self, pilot):
-        img = self._load_img('straight_line_1.jpg')
+        img = _load_img('straight_line_1.jpg')
         angle, throttle = pilot.run(img)
 
         assert throttle == 0.1
         assert 0.1 >= angle
 
     def test_turn_right(self, pilot):
-        img = self._load_img('turn_right.jpg')
+        img = _load_img('turn_right.jpg')
 
         angle, throttle = pilot.run(img)
         assert throttle == 0.1
         assert 0.9 >= angle >= 0.2
-
-    @staticmethod
-    def _load_img(img):
-        path = "donkeycar/tests/data/" + img
-        return cv2.imread(path)
 
 
 @pytest.fixture()
@@ -91,3 +91,14 @@ class TestThrottleControllerFixedSpeed:
     def test_run(self):
         assert ThrottleControllerFixedSpeed(throttle_value=0.1).run([]) == 0.1
         assert ThrottleControllerFixedSpeed(throttle_value=0.8).run([]) == 0.8
+
+
+@pytest.fixture
+def threshold_controller():
+    return ThresholdController()
+
+
+class TestThresholdController:
+
+    def test_straight_line(self, threshold_controller):
+        assert len(threshold_controller.run(_load_img("straight_line_1.jpg"))) > 0
