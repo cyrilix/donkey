@@ -34,13 +34,21 @@ class AngleProcessorMiddleLine:
         logger.debug("Angle estimation for centroids: %s", centroids)
 
         if not centroids:
+            logger.debug("None line found to process data")
             return 0.0
 
-        for centroid in centroids:
-            return self._compute_angle_for_centroid(centroid[0])
+        x_values = centroids[0][0]
+        nb_values = 1
 
-        logger.debug("None line found to process data")
-        return 0.0
+        if len(centroids) >= 2:
+            x_values += centroids[1][0]
+            nb_values += 1
+
+        if len(centroids) >= 3:
+            x_values += centroids[2][0]
+            
+        return self._compute_angle_for_centroid(x_values/nb_values)
+
 
     def _compute_angle_for_centroid(self, line):
         # Position in percent from the left of the middle line
