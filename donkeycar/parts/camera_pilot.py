@@ -117,11 +117,12 @@ class ThresholdController:
     Apply threshold process to gray images
     """
 
-    def __init__(self, limit=190, debug=False):
+    def __init__(self, limit_min=190, limit_max=255, debug=False):
         self._crop_from_top = 20
         self._debug = debug
         self._cache = None
-        self._limit = limit
+        self._limit_min = limit_min
+        self._limit_max = limit_max
 
     def shutdown(self):
         pass
@@ -131,7 +132,7 @@ class ThresholdController:
 
     def run(self, image_gray):
         try:
-            img = self._threshold2(image_gray)
+            img = self._threshold1(image_gray)
             # img = self._hide_top(img)
             self._cache = img
             return img
@@ -140,20 +141,17 @@ class ThresholdController:
             logging.exception("Unexpected error")
             return self._cache
 
-    def _threshold1(self, img, limit):
-        if limit:
-            binary = img.copy()
-            for pixel in np.nditer(binary, op_flags=['readwrite']):
-                if limit - 10 <= pixel <= limit + 10:
-                    pixel[...] = 255
-                else:
-                    pixel[...] = 0
-        else:
-            (_, binary) = cv2.threshold(img.copy(), 140, 255, 0, cv2.THRESH_BINARY)
+    def _threshold1(self, img):
+        binary = img.copy()
+        for pixel in np.nditer(binary, op_flags=['readwrite']):
+            if self._limit_min <= pixel <= self._limit_max:
+                pixel[...] = 255
+            else:
+                pixel[...] = 0
         return binary
 
     def _threshold2(self, img):
-        (_, binary) = cv2.threshold(img.copy(), self._limit, 255, 0, cv2.THRESH_BINARY)
+        (_, binary) = cv2.threshold(img.copy(), self._limit_min, 255, 0, cv2.THRESH_BINARY)
         return binary
 
     def _hide_top(self, img):

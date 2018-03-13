@@ -36,7 +36,9 @@ class BaseVehicle(Vehicle):
         # self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['threshold_limit'])
 
         # Cleaning image before processing
-        threshold_controller = ThresholdController(debug=cfg.DEBUG_PILOT)
+        threshold_controller = ThresholdController(debug=cfg.DEBUG_PILOT,
+                                                   limit_min=cfg.THRESHOLD_LIMIT_MIN,
+                                                   limit_max=cfg.THRESHOLD_LIMIT_MAX)
         self.add(threshold_controller,
                  inputs=['img/gray'],
                  outputs=['img/processed'])

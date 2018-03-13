@@ -40,7 +40,7 @@ class TestDrive:
         assert 0.1 >= angle
 
     def test_turn_right(self, pilot):
-        angle, throttle = pilot.run([(150, 150), (80, 140)])
+        angle, throttle = pilot.run([(150, 150), (150, 140)])
         assert throttle == 0.1
         assert 0.9 >= angle >= 0.2
 
@@ -94,8 +94,7 @@ class TestThrottleControllerFixedSpeed:
 
 @pytest.fixture
 def threshold_controller():
-    value_estimator = ThresholdValueEstimator()
-    return ThresholdController(value_estimator=value_estimator)
+    return ThresholdController()
 
 
 class TestThresholdController:
@@ -111,5 +110,5 @@ class TestThresholdValueEstimator:
         value_estimator = ThresholdValueEstimator(init_value=200)
 
         assert not value_estimator.cache_value()
-        assert value_estimator.run(img_gray=img, contours=[]) == 200
-        assert value_estimator.run(img_gray=img, contours=[(30, 100)]) == 93
+        assert value_estimator.run(img_gray=img) == 200
+        assert value_estimator.run(img_gray=img) == 93
