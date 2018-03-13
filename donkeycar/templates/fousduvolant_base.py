@@ -2,7 +2,7 @@ import logging
 
 from donkeycar import Vehicle
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, ThresholdController, \
-    ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot
+    ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot, ContoursDetector
 from donkeycar.parts.datastore import TubHandler
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
@@ -44,7 +44,10 @@ class BaseVehicle(Vehicle):
                  outputs=['img/processed'])
 
         #  Contours processing
-        contours_controller = ContourController(debug=cfg.DEBUG_PILOT)
+        contours_detector = ContoursDetector(poly_dp_min=cfg.POLY_DP_MIN,
+                                             arc_length_min=cfg.ARC_LENGTH_MIN,
+                                             arc_length_max=cfg.ARC_LENGTH_MAX)
+        contours_controller = ContourController(debug=cfg.DEBUG_PILOT, contours_detector=contours_detector)
         self.add(contours_controller,
                  inputs=['img/processed'],
                  outputs=['img/contours', 'centroids'])

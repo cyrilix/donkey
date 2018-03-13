@@ -217,10 +217,15 @@ class ThresholdValueEstimator:
         return self._value
 
 
-class ContoursDetectors:
+class ContoursDetector:
     """
     Search patterns in gray image and extract centroid coordinates matching
     """
+
+    def __init__(self, poly_dp_min=4, arc_length_min=10, arc_length_max=100000):
+        self._poly_dp_min = poly_dp_min
+        self._arc_length_min = arc_length_min
+        self._arc_length_max = arc_length_max
 
     def process_image(self, img_binarized):
         (_, cntrs, _) = self._search_geometry(img_binarized)
@@ -236,7 +241,7 @@ class ContoursDetectors:
             peri = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.05 * peri, True)
 
-            if len(approx) < 4 or peri < 10:
+            if len(approx) < self._poly_dp_min or peri < self._arc_length_min or peri > self._arc_length_max:
                 continue
 
             shapes.append(approx)
@@ -261,10 +266,10 @@ class ContoursDetectors:
 
 
 class ContourController:
-    def __init__(self, debug=False):
+    def __init__(self, contours_detector, debug=False):
         self._debug = debug
         self._cache = None
-        self._contours_detector = ContoursDetectors()
+        self._contours_detector = contours_detector
 
     def shutdown(self):
         pass
