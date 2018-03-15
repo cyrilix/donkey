@@ -17,7 +17,7 @@ class BaseCamera:
 
 
 class PiCamera(BaseCamera):
-    def __init__(self, resolution=(120, 160), framerate=20):
+    def __init__(self, resolution=(120, 160), framerate=20, rotation=0):
         from picamera.array import PiRGBArray
         from picamera import PiCamera
         resolution = (resolution[1], resolution[0])
@@ -25,6 +25,7 @@ class PiCamera(BaseCamera):
         self.camera = PiCamera()  # PiCamera gets resolution (height, width)
         self.camera.resolution = resolution
         self.camera.framerate = framerate
+        self.rotation = rotation
         self.rawCapture = PiRGBArray(self.camera, size=resolution)
         self.stream = self.camera.capture_continuous(self.rawCapture,
                                                      format="rgb", use_video_port=True)
