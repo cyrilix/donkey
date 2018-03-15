@@ -132,7 +132,7 @@ class ThresholdController:
 
     def run(self, image_gray):
         try:
-            img = self._threshold1(image_gray)
+            img = self._threshold2(image_gray)
             # img = self._hide_top(img)
             self._cache = img
             return img
