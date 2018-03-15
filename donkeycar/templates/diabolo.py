@@ -15,7 +15,7 @@ from docopt import docopt
 import donkeycar as dk
 from donkeycar.parts.actuator import GpioMotor
 # import parts
-from donkeycar.parts.camera import WebcamCV
+from donkeycar.parts.camera import PiCamera
 from donkeycar.templates.fousduvolant_base import BaseVehicle
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class Diabolo(BaseVehicle):
         self.add(GpioMotor(), inputs=['throttle', 'angle'])
 
     def _configure_camera(self, cfg):
-        cam = WebcamCV(resolution=cfg.CAMERA_RESOLUTION)
+        cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION)
         self.add(cam, outputs=['cam/image_array'], threaded=True)
 
 
