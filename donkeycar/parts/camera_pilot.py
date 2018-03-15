@@ -29,13 +29,14 @@ class AngleProcessorMiddleLine:
         self._out_in_percent = out_zone_in_percent
         self._central_zone_in_percent = central_zone_in_percent
         self._resolution = image_resolution
+        self._last_value = 0
 
     def estimate(self, centroids):
         logger.debug("Angle estimation for centroids: %s", centroids)
 
         if not centroids:
             logger.debug("None line found to process data")
-            return 0.0
+            return self._last_value
 
         if len(centroids) == 1:
             return self._compute_angle_for_centroid(centroids[0][0])
@@ -50,7 +51,12 @@ class AngleProcessorMiddleLine:
         if len(centroids) >= 4:
             x_values += centroids[2][0]
 
-        return self._compute_angle_for_centroid(x_values / nb_values)
+        angle = self._compute_angle_for_centroid(x_values / nb_values)
+        if angle < 0:
+            self._last_value = -1
+        if angle > 0:
+            self._last_value = 1
+        return angle
 
     def _compute_angle_for_centroid(self, line):
         # Position in percent from the left of the middle line
