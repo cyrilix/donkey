@@ -25,11 +25,12 @@ class AngleProcessorMiddleLine:
     <--------------- image array ------------->
     """
 
-    def __init__(self, image_resolution=(120, 160), out_zone_in_percent=20, central_zone_in_percent=20):
+    def __init__(self, image_resolution=(120, 160), out_zone_in_percent=20, central_zone_in_percent=20, use_only_first=False):
         self._out_in_percent = out_zone_in_percent
         self._central_zone_in_percent = central_zone_in_percent
         self._resolution = image_resolution
         self._last_value = 0
+        self._use_only_first = use_only_first
 
     def estimate(self, centroids):
         logger.debug("Angle estimation for centroids: %s", centroids)
@@ -39,19 +40,20 @@ class AngleProcessorMiddleLine:
             return self._last_value
 
         if len(centroids) == 1:
-            return self._compute_angle_for_centroid(centroids[0][0])
+            angle = self._compute_angle_for_centroid(centroids[0][0])
+        else:
+            x_values = centroids[0][0]
+            nb_values = 1
 
-        x_values = centroids[0][0]
-        nb_values = 1
+            if len(centroids) >= 2 and not self._use_only_first:
+                x_values += centroids[1][0]
+                nb_values += 1
 
-        if len(centroids) >= 2:
-            x_values += centroids[1][0]
-            nb_values += 1
+            if len(centroids) >= 4 and not self._use_only_first:
+                x_values += centroids[2][0]
 
-        if len(centroids) >= 4:
-            x_values += centroids[2][0]
+            angle = self._compute_angle_for_centroid(x_values / nb_values)
 
-        angle = self._compute_angle_for_centroid(x_values / nb_values)
         if angle < 0:
             self._last_value = -1
         if angle > 0:

@@ -85,7 +85,8 @@ class BaseVehicle(Vehicle):
         # Run the pilot if the mode is not user.
         angle_processor = AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
                                                    out_zone_in_percent=cfg.OUT_ZONE_PERCENT,
-                                                   central_zone_in_percent=cfg.CENTRAL_ZONE_PERCENT)
+                                                   central_zone_in_percent=cfg.CENTRAL_ZONE_PERCENT,
+                                                   use_only_first=cfg.USE_ONLY_NEAR_CONTOUR)
         throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED)
         camera_pilot = ImagePilot(angle_estimator=angle_processor,
                                   throttle_controller=throttle_controller)
