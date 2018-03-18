@@ -141,7 +141,7 @@ class ThresholdController:
 
     def run(self, image_gray):
         try:
-            img = self._threshold2(image_gray)
+            img = self._threshold(image_gray)
             # img = self._hide_top(img)
             self._cache = img
             return img
@@ -150,18 +150,10 @@ class ThresholdController:
             logging.exception("Unexpected error")
             return self._cache
 
-    def _threshold1(self, img):
-        binary = img.copy()
-        for pixel in np.nditer(binary, op_flags=['readwrite']):
-            if self._limit_min <= pixel <= self._limit_max:
-                pixel[...] = 255
-            else:
-                pixel[...] = 0
-        return binary
-
-    def _threshold2(self, img):
-        (_, binary) = cv2.threshold(img.copy(), self._limit_min, 255, 0, cv2.THRESH_BINARY)
-        return binary
+    def _threshold(self, img):
+        (_, binary_min) = cv2.threshold(img.copy(), self._limit_min, 255, 0, cv2.THRESH_BINARY)
+        (_, binary_max) = cv2.threshold(img.copy(), self._limit_max, 255, 0, cv2.THRESH_BINARY_INV)
+        return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
     def _hide_top(self, img):
         (rows, cols) = img.shape

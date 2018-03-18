@@ -1,8 +1,13 @@
+import logging
+
 import cv2
+import numpy as np
 import pytest
 
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
     ThrottleControllerFixedSpeed, ThresholdController, ThresholdValueEstimator
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -94,13 +99,29 @@ class TestThrottleControllerFixedSpeed:
 
 @pytest.fixture
 def threshold_controller():
-    return ThresholdController()
+    return ThresholdController(limit_min=100, limit_max=120)
 
 
 class TestThresholdController:
 
     def test_straight_line(self, threshold_controller):
         assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
+
+    def test_threshold_min_max(self, threshold_controller):
+        img_gray = np.ones((256, 256))
+        for i in range(0, 256):
+            img_gray[i] = np.ones(256) * i
+
+        img = threshold_controller.run(img_gray)
+
+        for i in range(99):
+            assert list(img[(i, ...)]) == list(np.zeros((256,)))
+
+        for i in range(110, 121):
+            assert list(img[i]) == list(np.ones((256,)) * 255)
+
+        for i in range(121, 256):
+            assert list(img[i]) == list(np.zeros((256,)))
 
 
 class TestThresholdValueEstimator:
