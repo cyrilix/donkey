@@ -1,7 +1,7 @@
 numpy
 pillow
 docopt
-tornado
+tornado==4.5.3
 requests
 python-socketio
 flask
@@ -10,3 +10,4 @@ moviepy
 pandas
 imutils
 opencv-python
+
