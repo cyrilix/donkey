@@ -110,5 +110,4 @@ class TestThresholdValueEstimator:
         value_estimator = ThresholdValueEstimator(init_value=200)
 
         assert not value_estimator.cache_value()
-        assert value_estimator.run(img_gray=img) == 200
-        assert value_estimator.run(img_gray=img) == 93
+        assert value_estimator.run(img_gray=img) == 217

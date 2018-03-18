@@ -25,7 +25,8 @@ class AngleProcessorMiddleLine:
     <--------------- image array ------------->
     """
 
-    def __init__(self, image_resolution=(120, 160), out_zone_in_percent=20, central_zone_in_percent=20, use_only_first=False):
+    def __init__(self, image_resolution=(120, 160), out_zone_in_percent=20, central_zone_in_percent=20,
+                 use_only_first=False):
         self._out_in_percent = out_zone_in_percent
         self._central_zone_in_percent = central_zone_in_percent
         self._resolution = image_resolution
@@ -182,20 +183,18 @@ class ThresholdValueEstimator:
         self._value = init_value
         self._img = None
         self._cache = None
-        self._contours_detectors = ContoursDetectors()
+        self._contours_detectors = ContoursDetector()
 
     def shutdown(self):
         pass
 
     def run(self, img_gray):
         try:
-            if not img_gray:
-                return self._init_value
 
             (_, binary) = cv2.threshold(img_gray.copy(), self._value, 255, 0, cv2.THRESH_BINARY)
-            (shapes, _) = self._contours_detectors.process_image(img_binarized=binary)
-            if shapes:
-                value = img_gray[contours[0][1], contours[0][0]]
+            (_, centroids) = self._contours_detectors.process_image(img_binarized=binary)
+            if centroids:
+                value = img_gray[centroids[0][1], centroids[0][0]]
                 logger.debug("Threshold value estimate: %s", value)
                 img_debug = img_gray.copy()
                 font = cv2.FONT_HERSHEY_SIMPLEX
