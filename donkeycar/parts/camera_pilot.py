@@ -184,13 +184,17 @@ class ThresholdValueEstimator:
         try:
 
             (_, binary) = cv2.threshold(img_gray.copy(), self._value, 255, 0, cv2.THRESH_BINARY)
-            (_, centroids) = self._contours_detectors.process_image(img_binarized=binary)
+            (shapes, centroids) = self._contours_detectors.process_image(img_binarized=binary)
             if centroids:
                 value = img_gray[centroids[0][1], centroids[0][0]]
                 logger.debug("Threshold value estimate: %s", value)
-                img_debug = img_gray.copy()
+
+                img_debug = cv2.cvtColor(img_gray.copy(), cv2.COLOR_GRAY2RGB)
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 cv2.putText(img_debug, str(value), (20, 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+
+                cv2.circle(img_debug, centroids[0], 3, (0, 100, 100), 1)
+                cv2.drawContours(img_debug, [shapes[0]], -1, (240, 40, 100), 1)
                 self._cache = img_debug
             else:
                 value = self._init_value
@@ -278,9 +282,9 @@ class ContourController:
 
     def run(self, image_array):
         try:
-            img, contours = self._process_contours(image_array)
+            img, centroids = self._process_contours(image_array)
             self._cache = img
-            return img, contours
+            return img, centroids
         except Exception:
             import numpy
             logging.exception("Unexpected error")
