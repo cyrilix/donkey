@@ -214,7 +214,7 @@ class VideoAPI2(tornado.web.RequestHandler):
             interval = .1
             if self.served_image_timestamp + interval < time.time():
 
-                img = utils.arr_to_binary(self._video_part.cache_value())
+                img = utils.arr_to_binary(self._video_part.video_frame())
 
                 self.write(my_boundary)
                 self.write("Content-type: image/jpeg\r\n")

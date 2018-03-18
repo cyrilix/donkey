@@ -1,7 +1,6 @@
 import logging
 
 import cv2
-import numpy as np
 from imutils import contours
 
 logger = logging.getLogger(__name__)
@@ -100,6 +99,8 @@ class ConvertToGrayPart:
     @staticmethod
     def run(image_array):
         try:
+            if not image_array:
+                return None
             return cv2.cvtColor(image_array.copy(), cv2.COLOR_RGB2GRAY)
         except Exception:
             logging.exception("Unexpected error")
@@ -121,7 +122,7 @@ class ThrottleControllerFixedSpeed:
         return self._throttle
 
 
-class ThresholdController:
+class ThresholdStaticController:
     """
     Apply threshold process to gray images
     """
@@ -142,7 +143,6 @@ class ThresholdController:
     def run(self, image_gray):
         try:
             img = self._threshold(image_gray)
-            # img = self._hide_top(img)
             self._cache = img
             return img
         except Exception:
@@ -155,13 +155,41 @@ class ThresholdController:
         (_, binary_max) = cv2.threshold(img.copy(), self._limit_max, 255, 0, cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
-    def _hide_top(self, img):
-        (rows, cols) = img.shape
-        min_rows = self._crop_from_top
-        if self._debug:
-            cv2.rectangle(img, (0, 0), (cols, min_rows), (0,), -1)
 
-        return img
+class ThresholdDynamicController:
+    """
+    Apply threshold process to gray images
+    """
+
+    def __init__(self, threshold_default=190, threshold_delta=10, debug=False):
+        self._crop_from_top = 20
+        self._debug = debug
+        self._video_frame = None
+        self._threshold_default = threshold_default
+        self._threshold_delta = threshold_delta
+
+    def shutdown(self):
+        pass
+
+    def video_frame(self):
+        return self._video_frame
+
+    def run(self, image_gray, threshold_value):
+        try:
+            img = self._threshold(image_gray, threshold_value)
+            self._video_frame = img
+            return img
+        except Exception:
+            import numpy
+            logging.exception("Unexpected error")
+            return self._video_frame
+
+    def _threshold(self, img, threshold_value):
+        (_, binary_min) = cv2.threshold(img.copy(), (threshold_value - self._threshold_delta), 255, 0,
+                                        cv2.THRESH_BINARY)
+        (_, binary_max) = cv2.threshold(img.copy(), (threshold_value + self._threshold_delta), 255, 0,
+                                        cv2.THRESH_BINARY_INV)
+        return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
 
 class ThresholdValueEstimator:
@@ -169,51 +197,49 @@ class ThresholdValueEstimator:
     Threshold estimation on gray image. Use near centroid to find pixel value
     """
 
-    def __init__(self, init_value=190):
+    def __init__(self, init_value=190, contours_detector=None):
 
         self._init_value = init_value
         self._value = init_value
-        self._img = None
-        self._cache = None
-        self._contours_detectors = ContoursDetector()
+        self._video_frame = None
+        if contours_detector:
+            self._contours_detector = contours_detector
+        else:
+            self._contours_detector = ContoursDetector()
 
     def shutdown(self):
         pass
 
     def run(self, img_gray):
         try:
-
             (_, binary) = cv2.threshold(img_gray.copy(), self._value, 255, 0, cv2.THRESH_BINARY)
-            (_, centroids) = self._contours_detectors.process_image(img_binarized=binary)
-            if centroids:
-                value = img_gray[centroids[0][1], centroids[0][0]]
-                logger.debug("Threshold value estimate: %s", value)
-                img_debug = img_gray.copy()
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(img_debug, str(value), (20, 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
-                self._cache = img_debug
-            else:
-                value = self._init_value
+            (shapes, centroids) = self._contours_detector.process_image(img_binarized=binary)
+
+            if not centroids:
+                return self._init_value
+
+            value = img_gray[centroids[0][1], centroids[0][0]]
+            self._value = value
+            logger.debug("Threshold value estimate: %s", value)
+
+            self.draw_image_debug(centroids[0], img_gray, [shapes[0]], value)
             return value
         except Exception:
             import numpy
             logging.exception("Unexpected error")
             return self._init_value
 
-    def update(self):
-        # the function run in it's own thread
-        while True:
-            self._value = self.run(self._img)
+    def video_frame(self):
+        return self._video_frame
 
-    def value(self):
-        return self._value
-
-    def cache_value(self):
-        return self._cache
-
-    def run_threaded(self, img_gray):
-        self._img = img_gray
-        return self._value
+    def draw_image_debug(self, centroids, img_gray, shape, value):
+        img_debug = cv2.cvtColor(img_gray.copy(), cv2.COLOR_GRAY2RGB)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(img_debug, str(value), (20, 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.circle(img_debug, centroids, 3, (0, 100, 100), 1)
+        cv2.drawContours(img_debug, shape, -1, (240, 40, 100), 1)
+        self._video_frame = img_debug
+        return img_debug
 
 
 class ContoursDetector:
@@ -267,24 +293,26 @@ class ContoursDetector:
 class ContourController:
     def __init__(self, contours_detector, debug=False):
         self._debug = debug
-        self._cache = None
+        self._video_frame = None
         self._contours_detector = contours_detector
 
     def shutdown(self):
         pass
 
-    def cache_value(self):
-        return self._cache
+    def video_frame(self):
+        return self._video_frame
 
     def run(self, image_array):
         try:
-            img, contours = self._process_contours(image_array)
-            self._cache = img
-            return img, contours
+            if not image_array:
+                return self._video_frame, []
+            img, centroids = self._process_contours(image_array)
+            self._video_frame = img
+            return img, centroids
         except Exception:
             import numpy
             logging.exception("Unexpected error")
-            return self._cache, []
+            return self._video_frame, []
 
     def _process_contours(self, img_gray):
         shapes, centroids = self._contours_detector.process_image(img_gray)

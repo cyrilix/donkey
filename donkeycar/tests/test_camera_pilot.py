@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
-    ThrottleControllerFixedSpeed, ThresholdController, ThresholdValueEstimator
+    ThrottleControllerFixedSpeed, ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController
 
 logger = logging.getLogger(__name__)
 
@@ -98,21 +98,48 @@ class TestThrottleControllerFixedSpeed:
 
 
 @pytest.fixture
-def threshold_controller():
-    return ThresholdController(limit_min=100, limit_max=120)
+def threshold_dynamic_controller():
+    return ThresholdDynamicController(threshold_default=100, threshold_delta=10)
 
 
-class TestThresholdController:
+class TestThresholdDynamicController:
 
-    def test_straight_line(self, threshold_controller):
-        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
+    def test_straight_line(self, threshold_dynamic_controller):
+        assert len(threshold_dynamic_controller.run(_load_img_gray("straight_line_1.jpg"), threshold_value=180)) > 0
 
-    def test_threshold_min_max(self, threshold_controller):
+    def test_threshold_min_max(self, threshold_dynamic_controller):
         img_gray = np.ones((256, 256))
         for i in range(0, 256):
             img_gray[i] = np.ones(256) * i
 
-        img = threshold_controller.run(img_gray)
+        img = threshold_dynamic_controller.run(img_gray, threshold_value=180)
+
+        for i in range(170):
+            assert list(img[(i, ...)]) == list(np.zeros((256,)))
+
+        for i in range(171, 190):
+            assert list(img[i]) == list(np.ones((256,)) * 255)
+
+        for i in range(191, 256):
+            assert list(img[i]) == list(np.zeros((256,)))
+
+
+@pytest.fixture
+def threshold_static_controller():
+    return ThresholdStaticController(limit_min=100, limit_max=120)
+
+
+class TestThresholdStaticController:
+
+    def test_straight_line(self, threshold_static_controller):
+        assert len(threshold_static_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
+
+    def test_threshold_min_max(self, threshold_static_controller):
+        img_gray = np.ones((256, 256))
+        for i in range(0, 256):
+            img_gray[i] = np.ones(256) * i
+
+        img = threshold_static_controller.run(img_gray)
 
         for i in range(99):
             assert list(img[(i, ...)]) == list(np.zeros((256,)))
@@ -130,5 +157,5 @@ class TestThresholdValueEstimator:
         img = _load_img_gray('straight_line_1.jpg')
         value_estimator = ThresholdValueEstimator(init_value=200)
 
-        assert not value_estimator.cache_value()
+        assert not value_estimator.video_frame()
         assert value_estimator.run(img_gray=img) == 217

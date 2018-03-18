@@ -1,8 +1,9 @@
 import logging
 
 from donkeycar import Vehicle
-from donkeycar.parts.camera_pilot import ConvertToGrayPart, ThresholdController, \
-    ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot, ContoursDetector
+from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
+    ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot, ContoursDetector, \
+    ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController
 from donkeycar.parts.datastore import TubHandler
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
@@ -32,38 +33,29 @@ class BaseVehicle(Vehicle):
 
         # Convert image to gray
         self.add(ConvertToGrayPart(), inputs=['cam/image_array'], outputs=['img/gray'])
-        # threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_LIMIT)
-        # self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['threshold_limit'])
-
-        # Cleaning image before processing
-        threshold_controller = ThresholdController(debug=cfg.DEBUG_PILOT,
-                                                   limit_min=cfg.THRESHOLD_LIMIT_MIN,
-                                                   limit_max=cfg.THRESHOLD_LIMIT_MAX)
-        self.add(threshold_controller,
-                 inputs=['img/gray'],
-                 outputs=['img/processed'])
 
         #  Contours processing
         contours_detector = ContoursDetector(poly_dp_min=cfg.POLY_DP_MIN,
                                              arc_length_min=cfg.ARC_LENGTH_MIN,
                                              arc_length_max=cfg.ARC_LENGTH_MAX)
+
+        threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_DYNAMIC_INIT,
+                                                            contours_detector=contours_detector)
+        self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['threshold_limit'])
+
+        threshold_controller = self._configure_threshold(cfg)
+
         contours_controller = ContourController(debug=cfg.DEBUG_PILOT, contours_detector=contours_detector)
         self.add(contours_controller,
                  inputs=['img/processed'],
                  outputs=['img/contours', 'centroids'])
-
-        # Warn: cyclic dependencies
-        #self.add(threshold_value_estimator,
-        #         inputs=['img/gray'],
-        #         outputs=['threshold'],
-        #         threaded=True)
 
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
         custom_handlers = [
             ("/video1", VideoAPI2, {"video_part": threshold_controller}),
             ("/video2", VideoAPI2, {"video_part": contours_controller}),
-         #   ("/video3", VideoAPI2, {"video_part": threshold_value_estimator}),
+            ("/video3", VideoAPI2, {"video_part": threshold_value_estimator}),
         ]
         ctr = LocalWebController(custom_handlers=custom_handlers)
         self.add(ctr,
@@ -132,3 +124,25 @@ class BaseVehicle(Vehicle):
 
     def _configure_camera(self, cfg):
         pass
+
+    def _configure_threshold(self, cfg):
+        if cfg.THRESHOLD_DYNAMIC_ENABLE:
+            logger.info("Init dynamic threshold controller")
+            threshold_controller = ThresholdDynamicController(debug=cfg.DEBUG_PILOT,
+                                                              threshold_default=cfg.THRESHOLD_DYNAMIC_INIT,
+                                                              threshold_delta=cfg.THRESHOLD_DYNAMIC_DELTA)
+            self.add(threshold_controller,
+                     inputs=['img/gray', 'threshold_limit'],
+                     outputs=['img/processed'])
+        else:
+            logger.info("Init static threshold controller")
+            threshold_controller = ThresholdStaticController(debug=cfg.DEBUG_PILOT,
+                                                             limit_min=cfg.THRESHOLD_LIMIT_MIN,
+                                                             limit_max=cfg.THRESHOLD_LIMIT_MAX)
+            self.add(threshold_controller,
+                     inputs=['img/gray'],
+                     outputs=['img/processed'])
+
+        return threshold_controller
+
+
