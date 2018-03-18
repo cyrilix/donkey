@@ -2,7 +2,8 @@ import logging
 
 from donkeycar import Vehicle
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, ThresholdController, \
-    ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot, ContoursDetector
+    ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot, ContoursDetector, \
+    ThresholdValueEstimator
 from donkeycar.parts.datastore import TubHandler
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
@@ -32,8 +33,8 @@ class BaseVehicle(Vehicle):
 
         # Convert image to gray
         self.add(ConvertToGrayPart(), inputs=['cam/image_array'], outputs=['img/gray'])
-        # threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_LIMIT)
-        # self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['threshold_limit'])
+        threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_LIMIT_MIN)
+        self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['threshold_limit'])
 
         # Cleaning image before processing
         threshold_controller = ThresholdController(debug=cfg.DEBUG_PILOT,
@@ -53,17 +54,17 @@ class BaseVehicle(Vehicle):
                  outputs=['img/contours', 'centroids'])
 
         # Warn: cyclic dependencies
-        #self.add(threshold_value_estimator,
-        #         inputs=['img/gray'],
-        #         outputs=['threshold'],
-        #         threaded=True)
+        self.add(threshold_value_estimator,
+                 inputs=['img/gray'],
+                 outputs=['threshold'],
+                 threaded=True)
 
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
         custom_handlers = [
             ("/video1", VideoAPI2, {"video_part": threshold_controller}),
             ("/video2", VideoAPI2, {"video_part": contours_controller}),
-         #   ("/video3", VideoAPI2, {"video_part": threshold_value_estimator}),
+            ("/video3", VideoAPI2, {"video_part": threshold_value_estimator}),
         ]
         ctr = LocalWebController(custom_handlers=custom_handlers)
         self.add(ctr,
