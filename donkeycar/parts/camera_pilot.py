@@ -99,8 +99,6 @@ class ConvertToGrayPart:
     @staticmethod
     def run(image_array):
         try:
-            if not image_array:
-                return None
             return cv2.cvtColor(image_array.copy(), cv2.COLOR_RGB2GRAY)
         except Exception:
             logging.exception("Unexpected error")
@@ -304,8 +302,6 @@ class ContourController:
 
     def run(self, image_array):
         try:
-            if not image_array:
-                return self._video_frame, []
             img, centroids = self._process_contours(image_array)
             self._video_frame = img
             return img, centroids
