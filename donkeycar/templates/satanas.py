@@ -39,7 +39,7 @@ class Satanas(BaseVehicle):
         self.add(throttle, inputs=['throttle'])
 
     def _configure_camera(self, cfg):
-        cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION, framerate=cfg.DRIVE_LOOP_HZ)
+        cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION, framerate=cfg.CAMERA_FRAMERATE)
         self.add(cam, outputs=['cam/image_array'], threaded=True)
 
 
