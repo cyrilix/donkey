@@ -33,7 +33,14 @@ class BaseVehicle(Vehicle):
 
         # Convert image to gray
         self.add(ConvertToGrayPart(), inputs=['cam/image_array'], outputs=['img/gray'])
-        threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_LIMIT_MIN)
+
+        #  Contours processing
+        contours_detector = ContoursDetector(poly_dp_min=cfg.POLY_DP_MIN,
+                                             arc_length_min=cfg.ARC_LENGTH_MIN,
+                                             arc_length_max=cfg.ARC_LENGTH_MAX)
+        
+        threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_LIMIT_MIN,
+                                                            contours_detector=contours_detector)
         self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['threshold_limit'])
 
         # Cleaning image before processing
@@ -44,20 +51,11 @@ class BaseVehicle(Vehicle):
                  inputs=['img/gray'],
                  outputs=['img/processed'])
 
-        #  Contours processing
-        contours_detector = ContoursDetector(poly_dp_min=cfg.POLY_DP_MIN,
-                                             arc_length_min=cfg.ARC_LENGTH_MIN,
-                                             arc_length_max=cfg.ARC_LENGTH_MAX)
         contours_controller = ContourController(debug=cfg.DEBUG_PILOT, contours_detector=contours_detector)
         self.add(contours_controller,
                  inputs=['img/processed'],
                  outputs=['img/contours', 'centroids'])
 
-        # Warn: cyclic dependencies
-        self.add(threshold_value_estimator,
-                 inputs=['img/gray'],
-                 outputs=['threshold'],
-                 threaded=True)
 
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.

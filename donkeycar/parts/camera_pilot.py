@@ -174,13 +174,15 @@ class ThresholdValueEstimator:
     Threshold estimation on gray image. Use near centroid to find pixel value
     """
 
-    def __init__(self, init_value=190):
+    def __init__(self, init_value=190, contours_detector=None):
 
         self._init_value = init_value
         self._value = init_value
         self._video_frame = None
-        self._img = None
-        self._contours_detectors = ContoursDetector()
+        if contours_detector:
+            self._contours_detector = contours_detector
+        else:
+            self._contours_detector = ContoursDetector()
 
     def shutdown(self):
         pass
@@ -188,42 +190,35 @@ class ThresholdValueEstimator:
     def run(self, img_gray):
         try:
             if not img_gray:
-                return self._init_value
+                return self._init_value, None
 
             (_, binary) = cv2.threshold(img_gray.copy(), self._value, 255, 0, cv2.THRESH_BINARY)
-            (shapes, centroids) = self._contours_detectors.process_image(img_binarized=binary)
-            if centroids:
-                value = img_gray[centroids[0][1], centroids[0][0]]
-                logger.debug("Threshold value estimate: %s", value)
+            (shapes, centroids) = self._contours_detector.process_image(img_binarized=binary)
 
-                img_debug = cv2.cvtColor(img_gray.copy(), cv2.COLOR_GRAY2RGB)
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(img_debug, str(value), (20, 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+            if not centroids:
+                return self._init_value, img_gray.copy()
 
-                cv2.circle(img_debug, centroids[0], 3, (0, 100, 100), 1)
-                cv2.drawContours(img_debug, [shapes[0]], -1, (240, 40, 100), 1)
-                self._cache = img_debug
-            else:
-                value = self._init_value
-            return value
+            value = img_gray[centroids[0][1], centroids[0][0]]
+            logger.debug("Threshold value estimate: %s", value)
+
+            img_debug = self.draw_image_debug(centroids[0], img_gray, [shapes[0]], value)
+            return value, img_debug
         except Exception:
             import numpy
             logging.exception("Unexpected error")
             return self._init_value
 
-    def update(self):
-        # the function run in it's own thread
-        while True:
-            self._value = self.run(self._img)
-
-    def value(self):
-        return self._value
     def video_frame(self):
         return self._video_frame
 
-    def run_threaded(self, img_gray):
-        self._img = img_gray
-        return self._value
+    def draw_image_debug(self, centroids, img_gray, shape, value):
+        img_debug = cv2.cvtColor(img_gray.copy(), cv2.COLOR_GRAY2RGB)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(img_debug, str(value), (20, 20), font, 1, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.circle(img_debug, centroids, 3, (0, 100, 100), 1)
+        cv2.drawContours(img_debug, shape, -1, (240, 40, 100), 1)
+        self._video_frame = img_debug
+        return img_debug
 
 
 class ContoursDetector:
