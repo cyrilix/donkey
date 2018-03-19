@@ -27,7 +27,7 @@ class Diabolo(BaseVehicle):
         self.add(GpioMotor(), inputs=['throttle', 'angle'])
 
     def _configure_camera(self, cfg):
-        cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION, rotation=180)
+        cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION, rotation=180, framerate=cfg.DRIVE_LOOP_HZ)
         self.add(cam, outputs=['cam/image_array'], threaded=True)
 
 
