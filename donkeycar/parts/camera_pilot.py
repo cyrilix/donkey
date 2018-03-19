@@ -1,7 +1,6 @@
 import logging
 
 import cv2
-import numpy as np
 from imutils import contours
 
 logger = logging.getLogger(__name__)
@@ -126,12 +125,12 @@ class ThresholdController:
     Apply threshold process to gray images
     """
 
-    def __init__(self, limit_min=190, limit_max=255, debug=False):
+    def __init__(self, threshold_defaut=190, threshold_delta=10, debug=False):
         self._crop_from_top = 20
         self._debug = debug
         self._video_frame = None
-        self._limit_min = limit_min
-        self._limit_max = limit_max
+        self._threshold_default = threshold_defaut
+        self._threshold_delta = threshold_delta
 
     def shutdown(self):
         pass
@@ -139,9 +138,9 @@ class ThresholdController:
     def video_frame(self):
         return self._video_frame
 
-    def run(self, image_gray):
+    def run(self, image_gray, threshold_value):
         try:
-            img = self._threshold(image_gray)
+            img = self._threshold(image_gray, threshold_value)
             # img = self._hide_top(img)
             self._video_frame = img
             return img
@@ -150,9 +149,11 @@ class ThresholdController:
             logging.exception("Unexpected error")
             return self._video_frame
 
-    def _threshold(self, img):
-        (_, binary_min) = cv2.threshold(img.copy(), self._limit_min, 255, 0, cv2.THRESH_BINARY)
-        (_, binary_max) = cv2.threshold(img.copy(), self._limit_max, 255, 0, cv2.THRESH_BINARY_INV)
+    def _threshold(self, img, threshold_value):
+        (_, binary_min) = cv2.threshold(img.copy(), (threshold_value - self._threshold_delta), 255, 0,
+                                        cv2.THRESH_BINARY)
+        (_, binary_max) = cv2.threshold(img.copy(), (threshold_value + self._threshold_delta), 255, 0,
+                                        cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
     def _hide_top(self, img):
@@ -188,13 +189,14 @@ class ThresholdValueEstimator:
             (shapes, centroids) = self._contours_detector.process_image(img_binarized=binary)
 
             if not centroids:
-                return self._init_value, img_gray.copy()
+                return self._init_value
 
             value = img_gray[centroids[0][1], centroids[0][0]]
+            self._value = value
             logger.debug("Threshold value estimate: %s", value)
 
-            img_debug = self.draw_image_debug(centroids[0], img_gray, [shapes[0]], value)
-            return value, img_debug
+            self.draw_image_debug(centroids[0], img_gray, [shapes[0]], value)
+            return value
         except Exception:
             import numpy
             logging.exception("Unexpected error")
