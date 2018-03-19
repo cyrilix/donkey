@@ -131,29 +131,29 @@ class ThresholdController:
     def __init__(self, limit_min=190, limit_max=255, debug=False):
         self._crop_from_top = 20
         self._debug = debug
-        self._cache = None
+        self._video_frame = None
         self._limit_min = limit_min
         self._limit_max = limit_max
 
     def shutdown(self):
         pass
 
-    def cache_value(self):
-        return self._cache
+    def video_frame(self):
+        return self._video_frame
 
     def run(self, image_gray):
         try:
             if not image_gray:
-                return self._cache
+                return self._video_frame
 
             img = self._threshold(image_gray)
             # img = self._hide_top(img)
-            self._cache = img
+            self._video_frame = img
             return img
         except Exception:
             import numpy
             logging.exception("Unexpected error")
-            return self._cache
+            return self._video_frame
 
     def _threshold(self, img):
         (_, binary_min) = cv2.threshold(img.copy(), self._limit_min, 255, 0, cv2.THRESH_BINARY)
@@ -178,8 +178,8 @@ class ThresholdValueEstimator:
 
         self._init_value = init_value
         self._value = init_value
+        self._video_frame = None
         self._img = None
-        self._cache = None
         self._contours_detectors = ContoursDetector()
 
     def shutdown(self):
@@ -218,9 +218,8 @@ class ThresholdValueEstimator:
 
     def value(self):
         return self._value
-
-    def cache_value(self):
-        return self._cache
+    def video_frame(self):
+        return self._video_frame
 
     def run_threaded(self, img_gray):
         self._img = img_gray
@@ -278,26 +277,26 @@ class ContoursDetector:
 class ContourController:
     def __init__(self, contours_detector, debug=False):
         self._debug = debug
-        self._cache = None
+        self._video_frame = None
         self._contours_detector = contours_detector
 
     def shutdown(self):
         pass
 
-    def cache_value(self):
-        return self._cache
+    def video_frame(self):
+        return self._video_frame
 
     def run(self, image_array):
         try:
             if not image_array:
-                return self._cache, []
+                return self._video_frame, []
             img, centroids = self._process_contours(image_array)
-            self._cache = img
+            self._video_frame = img
             return img, centroids
         except Exception:
             import numpy
             logging.exception("Unexpected error")
-            return self._cache, []
+            return self._video_frame, []
 
     def _process_contours(self, img_gray):
         shapes, centroids = self._contours_detector.process_image(img_gray)
