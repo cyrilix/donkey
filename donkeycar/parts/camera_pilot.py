@@ -100,8 +100,6 @@ class ConvertToGrayPart:
     @staticmethod
     def run(image_array):
         try:
-            if not image_array:
-                return None
             return cv2.cvtColor(image_array.copy(), cv2.COLOR_RGB2GRAY)
         except Exception:
             logging.exception("Unexpected error")
@@ -143,9 +141,6 @@ class ThresholdController:
 
     def run(self, image_gray):
         try:
-            if not image_gray:
-                return self._video_frame
-
             img = self._threshold(image_gray)
             # img = self._hide_top(img)
             self._video_frame = img
@@ -189,9 +184,6 @@ class ThresholdValueEstimator:
 
     def run(self, img_gray):
         try:
-            if not img_gray:
-                return self._init_value, None
-
             (_, binary) = cv2.threshold(img_gray.copy(), self._value, 255, 0, cv2.THRESH_BINARY)
             (shapes, centroids) = self._contours_detector.process_image(img_binarized=binary)
 
@@ -283,8 +275,6 @@ class ContourController:
 
     def run(self, image_array):
         try:
-            if not image_array:
-                return self._video_frame, []
             img, centroids = self._process_contours(image_array)
             self._video_frame = img
             return img, centroids
