@@ -52,5 +52,4 @@ if __name__ == '__main__':
         vehicle = Satanas(cfg)
 
         # run the vehicle
-        vehicle.start(rate_hz=cfg.DRIVE_LOOP_HZ,
-                      max_loop_count=cfg.MAX_LOOPS)
+        vehicle.start(rate_hz=cfg.DRIVE_LOOP_HZ)
