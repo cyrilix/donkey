@@ -3,7 +3,7 @@ import logging
 from donkeycar import Vehicle
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, ThresholdController, \
     ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot, ContoursDetector, \
-    ThresholdValueEstimator
+    ThresholdValueEstimator, ThrottleControllerSteeringBased
 from donkeycar.parts.datastore import TubHandler
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
@@ -85,10 +85,14 @@ class BaseVehicle(Vehicle):
                                                    out_zone_in_percent=cfg.OUT_ZONE_PERCENT,
                                                    central_zone_in_percent=cfg.CENTRAL_ZONE_PERCENT,
                                                    use_only_first=cfg.USE_ONLY_NEAR_CONTOUR)
-        throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED)
+
+        throttle_controller = ThrottleControllerSteeringBased(min_speed=cfg.THROTTLE_MIN_SPEED,
+                                                              max_speed=cfg.THROTTLE_MAX_SPEED,
+                                                              safe_angle=cfg.THROTTLE_SAFE_ANGLE,
+                                                              dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE)
+
         camera_pilot = ImagePilot(angle_estimator=angle_processor,
                                   throttle_controller=throttle_controller)
-
         self.add(camera_pilot,
                  inputs=['centroids'],
                  outputs=['pilot/angle', 'pilot/throttle'],
