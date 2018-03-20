@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
-    ThrottleControllerFixedSpeed, ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController
+    ThrottleControllerFixedSpeed, ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, \
+    ThrottleControllerSteeringBased
 
 logger = logging.getLogger(__name__)
 
@@ -159,3 +160,22 @@ class TestThresholdValueEstimator:
 
         assert not value_estimator.video_frame()
         assert value_estimator.run(img_gray=img) == 217
+
+
+@pytest.fixture
+def throttle_controller_angle():
+    return ThrottleControllerSteeringBased(min_speed=0.4, max_speed=0.8, safe_angle=0.2, dangerous_angle=0.8)
+
+
+class TestThrottleControllerSteeringBased:
+
+    def test_throttle_with_min_angle(self, throttle_controller_angle):
+        assert throttle_controller_angle.run(0.0) == 0.8
+
+    def test_throttle_with_max_angle(self, throttle_controller_angle):
+        assert throttle_controller_angle.run(1.0) == 0.4
+
+    def test_throttle_with_intermediate_angle(self, throttle_controller_angle):
+        assert throttle_controller_angle.run(0.5) == 0.6
+        assert throttle_controller_angle.run(0.8) == 0.72
+        assert throttle_controller_angle.run(0.2) == 0.48

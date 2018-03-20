@@ -4,7 +4,7 @@ CAR CONFIG
 This file is read by your car application's manage.py script to change the car
 performance.
 
-EXMAPLE
+EXAMPLE
 -----------
 import dk
 cfg = dk.load_config(config_path='~/d2/config.py')
@@ -34,14 +34,20 @@ TX_STEERING_MAX = 1960
 STEERING_LEFT_PWM = ((TX_STEERING_MAX) / (16666 / 4095))
 STEERING_RIGHT_PWM = ((TX_STEERING_MIN) / (16666 / 4095))
 
-# THROTTLE
+############
+# THROTTLE #
+############
 THROTTLE_CHANNEL = 1
 THROTTLE_FORWARD_PWM = 400
 THROTTLE_STOPPED_PWM = 360
 THROTTLE_REVERSE_PWM = 310
 
+THROTTLE_STEERING_ENABLE = True
 # Max speed between 0-1
-THROTTLE_MAX_SPEED = 0.52
+THROTTLE_MIN_SPEED = 0.5
+THROTTLE_MAX_SPEED = 1.0
+THROTTLE_SAFE_ANGLE = 0.3
+THROTTLE_DANGEROUS_ANGLE = 0.8
 
 # TRAINING
 BATCH_SIZE = 128
@@ -59,13 +65,13 @@ ARC_LENGTH_MIN = 15
 ARC_LENGTH_MAX = 100000000
 
 #############
-# Threshold #
+#  Threshold #
 #############
-# Static implementation
+#  Static implementation
 THRESHOLD_LIMIT_MIN = 180
 THRESHOLD_LIMIT_MAX = 230
 
-# Dynamic
+#  Dynamic
 THRESHOLD_DYNAMIC_ENABLE = True
 THRESHOLD_DYNAMIC_INIT = 180
 THRESHOLD_DYNAMIC_DELTA = 10

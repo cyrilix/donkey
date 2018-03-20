@@ -1,6 +1,7 @@
 import logging
 
 import cv2
+import math
 from imutils import contours
 
 logger = logging.getLogger(__name__)
@@ -118,6 +119,33 @@ class ThrottleControllerFixedSpeed:
 
     def run(self, centroids):
         return self._throttle
+
+
+class ThrottleControllerSteeringBased:
+    """
+    Implementation of throttle controller using steering value
+    """
+
+    def __init__(self, min_speed=0.1, max_speed=1.0, safe_angle=0.2, dangerous_angle=0.8):
+        self._min_speed = min_speed
+        self._max_speed = max_speed
+        self._dangerous_angle = dangerous_angle
+        self._safe_angle = safe_angle
+
+    def shutdown(self):
+        pass
+
+    def run(self, angle):
+        # Angle between 0 - safe direction ==> max_speed
+        if angle < self._safe_angle:
+            return self._max_speed
+        # Angle > danger => min speed
+        if angle > self._dangerous_angle:
+            return self._min_speed
+
+        # other ==> proportional to (max_speed - min_speed )
+        speed_interv = self._max_speed - self._min_speed
+        return round((angle * speed_interv) + self._min_speed, 2)
 
 
 class ThresholdStaticController:
@@ -337,8 +365,9 @@ class ImagePilot:
 
     def run(self, centroids):
         try:
-            throttle = self._throttle_controller.run(centroids)
-            return self._angle_estimator.estimate(centroids=centroids), throttle
+            angle = self._angle_estimator.estimate(centroids=centroids)
+            throttle = self._throttle_controller.run(angle)
+            return angle, throttle
         except Exception:
             logging.exception("Unexpected error")
             return 0.0, 0.0
