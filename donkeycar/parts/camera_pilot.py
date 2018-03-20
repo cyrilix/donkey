@@ -1,6 +1,7 @@
 import logging
 
 import cv2
+import math
 from imutils import contours
 
 logger = logging.getLogger(__name__)
