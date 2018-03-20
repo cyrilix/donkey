@@ -99,28 +99,28 @@ class TestThrottleControllerFixedSpeed:
 
 @pytest.fixture
 def threshold_controller():
-    return ThresholdController(limit_min=100, limit_max=120)
+    return ThresholdController(threshold_defaut=100, threshold_delta=10)
 
 
 class TestThresholdController:
 
     def test_straight_line(self, threshold_controller):
-        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
+        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"), threshold_value=180)) > 0
 
     def test_threshold_min_max(self, threshold_controller):
         img_gray = np.ones((256, 256))
         for i in range(0, 256):
             img_gray[i] = np.ones(256) * i
 
-        img = threshold_controller.run(img_gray)
+        img = threshold_controller.run(img_gray, threshold_value=180)
 
-        for i in range(99):
+        for i in range(170):
             assert list(img[(i, ...)]) == list(np.zeros((256,)))
 
-        for i in range(110, 121):
+        for i in range(171, 190):
             assert list(img[i]) == list(np.ones((256,)) * 255)
 
-        for i in range(121, 256):
+        for i in range(191, 256):
             assert list(img[i]) == list(np.zeros((256,)))
 
 
@@ -130,5 +130,5 @@ class TestThresholdValueEstimator:
         img = _load_img_gray('straight_line_1.jpg')
         value_estimator = ThresholdValueEstimator(init_value=200)
 
-        assert not value_estimator.cache_value()
+        assert not value_estimator.video_frame()
         assert value_estimator.run(img_gray=img) == 217
