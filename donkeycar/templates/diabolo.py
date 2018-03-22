@@ -30,6 +30,9 @@ class Diabolo(BaseVehicle):
         cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION, rotation=180, framerate=cfg.CAMERA_FRAMERATE)
         self.add(cam, outputs=['cam/image_array'], threaded=True)
 
+    def _configure_arduino(self, cfg):
+        pass
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

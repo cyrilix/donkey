@@ -1,6 +1,7 @@
 import logging
 
 from donkeycar import Vehicle
+from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, ThresholdController, \
     ContourController, AngleProcessorMiddleLine, ThrottleControllerFixedSpeed, ImagePilot, ContoursDetector, \
     ThresholdValueEstimator, ThrottleControllerSteeringBased
@@ -30,6 +31,7 @@ class BaseVehicle(Vehicle):
         """
 
         self._configure_camera(cfg)
+        self._configure_arduino(cfg)
 
         # Convert image to gray
         self.add(ConvertToGrayPart(), inputs=['cam/image_array'], outputs=['img/gray'])
@@ -94,7 +96,7 @@ class BaseVehicle(Vehicle):
         camera_pilot = ImagePilot(angle_estimator=angle_processor,
                                   throttle_controller=throttle_controller)
         self.add(camera_pilot,
-                 inputs=['centroids'],
+                 inputs=['centroids', 'shock'],
                  outputs=['pilot/angle', 'pilot/throttle'],
                  run_condition='run_pilot')
 
@@ -128,6 +130,12 @@ class BaseVehicle(Vehicle):
         self.add(tub, inputs=inputs, run_condition='recording')
 
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
+
+    def _configure_arduino(self, cfg):
+        arduino = SerialPart(port=cfg.ARDUINO_SERIAL_PORT, baudrate=cfg.ARDUINO_SERIAL_BAUDRATE)
+        self.add(arduino,
+                 outputs=["raw/steering", "raw/throttle", "shock"],
+                 threaded=True)
 
     def _configure_car_hardware(self, cfg):
         pass

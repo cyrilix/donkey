@@ -113,12 +113,20 @@ class ThrottleControllerFixedSpeed:
 
     def __init__(self, throttle_value=0.1):
         self._throttle = throttle_value
+        self._shock = False
 
     def shutdown(self):
         pass
 
-    def run(self, centroids):
-        return self._throttle
+    def run(self, centroids, shock):
+        if shock:
+            logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
+            self._shock = shock
+
+        if self._shock:
+            return 0.0
+        else:
+            return self._throttle
 
 
 class ThrottleControllerSteeringBased:
@@ -131,11 +139,19 @@ class ThrottleControllerSteeringBased:
         self._max_speed = max_speed
         self._dangerous_angle = dangerous_angle
         self._safe_angle = safe_angle
+        self._shock = False
 
     def shutdown(self):
         pass
 
-    def run(self, angle):
+    def run(self, angle, shock):
+        if shock:
+            logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
+            self._shock = shock
+
+        if self._shock:
+            return 0.0
+
         # Angle between 0 - safe direction ==> max_speed
         if angle < self._safe_angle:
             return self._max_speed
@@ -338,10 +354,10 @@ class ImagePilot:
     def shutdown(self):
         pass
 
-    def run(self, centroids):
+    def run(self, centroids, shock):
         try:
             angle = self._angle_estimator.estimate(centroids=centroids)
-            throttle = self._throttle_controller.run(angle)
+            throttle = self._throttle_controller.run(angle, shock)
             return angle, throttle
         except Exception:
             logging.exception("Unexpected error")
