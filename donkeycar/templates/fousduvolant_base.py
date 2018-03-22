@@ -1,6 +1,7 @@
 import logging
 
 from donkeycar import Vehicle
+from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
     ContourController, AngleProcessorMiddleLine, ImagePilot, ContoursDetector, \
     ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, ThrottleControllerSteeringBased, \
@@ -31,6 +32,7 @@ class BaseVehicle(Vehicle):
         """
 
         self._configure_camera(cfg)
+        self._configure_arduino(cfg)
 
         # Convert image to gray
         self.add(ConvertToGrayPart(), inputs=['cam/image_array'], outputs=['img/gray'])
@@ -86,7 +88,7 @@ class BaseVehicle(Vehicle):
         camera_pilot = ImagePilot(angle_estimator=angle_processor,
                                   throttle_controller=throttle_controller)
         self.add(camera_pilot,
-                 inputs=['centroids'],
+                 inputs=['centroids', 'shock'],
                  outputs=['pilot/angle', 'pilot/throttle'],
                  run_condition='run_pilot')
 
@@ -127,10 +129,18 @@ class BaseVehicle(Vehicle):
             throttle_controller = ThrottleControllerSteeringBased(min_speed=cfg.THROTTLE_MIN_SPEED,
                                                                   max_speed=cfg.THROTTLE_MAX_SPEED,
                                                                   safe_angle=cfg.THROTTLE_SAFE_ANGLE,
-                                                                  dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE)
+                                                                  dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE,
+                                                                  stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK)
         else:
-            throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED)
+            throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED,
+                                                               stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK)
         return throttle_controller
+
+    def _configure_arduino(self, cfg):
+        arduino = SerialPart(port=cfg.ARDUINO_SERIAL_PORT, baudrate=cfg.ARDUINO_SERIAL_BAUDRATE)
+        self.add(arduino,
+                 outputs=["raw/steering", "raw/throttle", "shock"],
+                 threaded=True)
 
     def _configure_car_hardware(self, cfg):
         pass

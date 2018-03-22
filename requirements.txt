@@ -10,4 +10,4 @@ moviepy
 pandas
 imutils
 opencv-python
-
+pyserial

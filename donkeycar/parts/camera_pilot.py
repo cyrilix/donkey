@@ -1,7 +1,6 @@
 import logging
 
 import cv2
-import math
 from imutils import contours
 
 logger = logging.getLogger(__name__)
@@ -111,14 +110,26 @@ class ConvertToGrayPart:
 
 class ThrottleControllerFixedSpeed:
 
-    def __init__(self, throttle_value=0.1):
+    def __init__(self, throttle_value=0.1, stop_on_shock=False):
         self._throttle = throttle_value
+        self._shock = False
+        self._stop_on_shock = stop_on_shock
 
     def shutdown(self):
         pass
 
-    def run(self, centroids):
-        return self._throttle
+    def run(self, centroids, shock):
+        if not self._stop_on_shock:
+            return self._throttle
+
+        if shock:
+            logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
+            self._shock = shock
+
+        if self._shock:
+            return 0.0
+        else:
+            return self._throttle
 
 
 class ThrottleControllerSteeringBased:
@@ -126,16 +137,26 @@ class ThrottleControllerSteeringBased:
     Implementation of throttle controller using steering value
     """
 
-    def __init__(self, min_speed=0.1, max_speed=1.0, safe_angle=0.2, dangerous_angle=0.8):
+    def __init__(self, min_speed=0.1, max_speed=1.0, safe_angle=0.2, dangerous_angle=0.8, stop_on_shock=False):
         self._min_speed = min_speed
         self._max_speed = max_speed
         self._dangerous_angle = dangerous_angle
         self._safe_angle = safe_angle
+        self._shock = False
+        self._stop_on_shock = stop_on_shock
 
     def shutdown(self):
         pass
 
-    def run(self, angle):
+    def run(self, angle, shock):
+        if self._stop_on_shock:
+            if shock:
+                logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
+                self._shock = shock
+
+            if self._shock:
+                return 0.0
+
         # Angle between 0 - safe direction ==> max_speed
         if angle < self._safe_angle:
             return self._max_speed
@@ -363,10 +384,10 @@ class ImagePilot:
     def shutdown(self):
         pass
 
-    def run(self, centroids):
+    def run(self, centroids, shock):
         try:
             angle = self._angle_estimator.estimate(centroids=centroids)
-            throttle = self._throttle_controller.run(angle)
+            throttle = self._throttle_controller.run(angle, shock)
             return angle, throttle
         except Exception:
             logging.exception("Unexpected error")
