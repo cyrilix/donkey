@@ -6,7 +6,7 @@ from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
     ContourController, AngleProcessorMiddleLine, ImagePilot, ContoursDetector, \
     ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, ThrottleControllerSteeringBased, \
     ThrottleControllerFixedSpeed
-from donkeycar.parts.datastore import TubHandler
+from donkeycar.parts.data import TubAmqpWriter
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
 
@@ -113,13 +113,29 @@ class BaseVehicle(Vehicle):
 
         self._configure_car_hardware(cfg)
 
-        # add tub to save data
-        inputs = ['cam/image_array', 'user/angle', 'user/throttle', 'user/mode']
-        types = ['image_array', 'float', 'float', 'str']
+        inputs_amqp = {
+            'cam/image_array': 'image_array',
+            'img/gray': 'image_array',
+            'img/processed': 'image_array',
+            'img/contours': 'image_array',
+            'user/angle': 'float',
+            'user/throttle': 'float',
+            'pilot/angle': 'float',
+            'pilot/throttle': 'float',
+            'threshold_limit': 'float',
+            'centroids': 'list',
+            'shock': 'boolean',
+            'user/mode': 'str'
+        }
 
-        th = TubHandler(path=cfg.DATA_PATH)
-        tub = th.new_tub_writer(inputs=inputs, types=types)
-        self.add(tub, inputs=inputs, run_condition='recording')
+        inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'user/angle', 'user/throttle',
+                  'pilot/angle', 'pilot/throttle', 'threshold_limit', 'centroids', 'shock', 'user/mode']
+        self.add(TubAmqpWriter(
+            inputs=inputs,
+            input_types=inputs_amqp,
+            queue_name='fous_du_volant'),
+            inputs=inputs
+        )
 
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
 
