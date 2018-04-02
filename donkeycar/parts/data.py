@@ -47,8 +47,6 @@ class TubAmqpWriter:
 
         self.record_time = int(time.time() - self.start_time)
         record = dict(zip(self._inputs, args))
-        logger.info(args)
-        logger.info(record)
         self._send_record(record)
 
     def _send_record(self, data):

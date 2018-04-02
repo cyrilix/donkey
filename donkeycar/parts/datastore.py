@@ -5,17 +5,16 @@ Created on Tue Jul  4 12:32:53 2017
 
 @author: wroscoe
 """
-import os
-import sys
-import time
-import json
 import datetime
+import json
+import os
 import random
+import sys
+
 import numpy as np
 import pandas as pd
-
+import time
 from PIL import Image
-from amqpy import Connection, Message
 
 from donkeycar import utils
 
@@ -336,8 +335,6 @@ class TubWriter(Tub):
         self.record_time = int(time.time() - self.start_time)
         record = dict(zip(self.inputs, args))
         self.put_record(record)
-
-
 
 
 class TubReader(Tub):

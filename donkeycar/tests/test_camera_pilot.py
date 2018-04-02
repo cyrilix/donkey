@@ -62,6 +62,7 @@ class TestDrive:
         assert throttle == 0.0
         assert 0.9 >= angle >= 0.2
 
+
 @pytest.fixture()
 def angle_processor():
     return AngleProcessorMiddleLine(image_resolution=(120, 160))

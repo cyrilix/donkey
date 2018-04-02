@@ -4,15 +4,14 @@ Classes to control the motors and servos. These classes
 are wrapped in a mixer class before being used in the drive loop.
 """
 import logging
-import time
 from math import floor
 
-import RPi.GPIO as GPIO
-import wiringpi
+import time
 
 import donkeycar as dk
 
 logger = logging.getLogger(__name__)
+
 
 class PCA9685:
     '''
@@ -103,7 +102,10 @@ class GpioMotor:
     Soft PWM control
     Used on a differential drive car.
     """
+
     def __init__(self, pwm_range=100):
+        import RPi.GPIO as GPIO
+        import wiringpi
         self.ENA = 13
         self.ENB = 20
         self.IN1 = 19
