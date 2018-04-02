@@ -1,7 +1,6 @@
 import logging
 
 import cv2
-import math
 from imutils import contours
 
 logger = logging.getLogger(__name__)
@@ -235,7 +234,7 @@ class ThresholdValueEstimator:
             if not centroids:
                 return self._init_value
 
-            value = img_gray[centroids[0][1], centroids[0][0]]
+            value = img_gray.item((centroids[0][1], centroids[0][0]))
             self._value = value
             logger.debug("Threshold value estimate: %s", value)
 
