@@ -20,11 +20,11 @@ DATA_PATH = os.path.join(CAR_PATH, 'data')
 MODELS_PATH = os.path.join(CAR_PATH, 'models')
 
 # VEHICLE
-DRIVE_LOOP_HZ = 60
+DRIVE_LOOP_HZ = 40
 MAX_LOOPS = 100000
 
 # CAMERA
-CAMERA_RESOLUTION = (120, 160)  # (height, width)
+CAMERA_RESOLUTION = (128, 160)  # (height, width)
 CAMERA_FRAMERATE = DRIVE_LOOP_HZ
 
 # STEERING
