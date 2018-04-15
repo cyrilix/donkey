@@ -11,4 +11,4 @@ pandas
 imutils
 opencv-python
 pyserial
-amqpy
+paho-mqtt

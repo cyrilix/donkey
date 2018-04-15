@@ -1,10 +1,11 @@
+import base64
 import json
 import logging
 from datetime import datetime
 
 import numpy
+import paho.mqtt.client as mqtt
 import time
-from amqpy import Connection, Message
 
 from donkeycar import utils
 
@@ -18,37 +19,34 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-class TubAmqpWriter:
-    def __init__(self, inputs, input_types, queue_name, exchange='car', hostname='localhost'):
+class MqttPart:
+    def __init__(self, inputs, input_types, topic='car', hostname='localhost', port=1883,
+                 client_id="car", username=None, password=None, qos=1):
+        self._qos = qos
         self._previous_mode = None
         self.record_time = 0
         self._input_types = input_types
         self.start_time = time.time()
         self._inputs = inputs
-        self._exchange = exchange
-        self._queue_name = queue_name
-        self._init_channel(hostname)
         self._reset_tub_name()
 
-    def _init_channel(self, hostname):
-        self._connection = Connection(host=hostname)
-        self._channel = self._connection.channel()
-        self._channel.exchange_declare(exchange=self._exchange, exch_type='direct')
-        self._channel.queue_declare(queue=self._queue_name, auto_delete=False)
-        self._channel.queue_bind(self._queue_name, exchange=self._exchange, routing_key=self._queue_name)
+        self._mqtt_client = mqtt.Client(client_id=client_id + "-", clean_session=False, userdata=None,
+                                        protocol=mqtt.MQTTv311)
+        self._mqtt_client.username_pw_set(username=username, password=password)
+        self._mqtt_client.connect(hostname, port, 60)
+        self._mqtt_client.loop_start()
+        self._topic = topic
 
     def run(self, *args):
         """
         API function needed to use as a Donkey part.
 
-        Accepts values, pairs them with their inputs keys and send them to amqp broker.
+        Accepts values, pairs them with their inputs keys and send them to mqtt broker.
         """
         assert len(self._input_types) == len(args)
 
         self.record_time = int(time.time() - self.start_time)
         record = dict(zip(self._inputs, args))
-        logger.info(args)
-        logger.info(record)
         self._send_record(record)
 
     def _send_record(self, data):
@@ -77,33 +75,40 @@ class TubAmqpWriter:
                 json_data[key] = list(val)
             elif typ is 'image':
                 name = self.make_file_name(key, ext='.jpg')
-                message = Message(val,
-                                  content_type='image/jpeg',
-                                  application_headers={'name': name,
-                                                       'tub_name': self._tub_name,
-                                                       'index': self._current_idx})
+                message = self._build_image_message(image_name=name, img_content=val, part=key)
                 json_data[key] = name
-                self._publish(message)
-
+                self._publish(message, topic=self._topic + "/image/" + key)
             elif typ == 'image_array':
-                name = self.make_file_name(key, ext='.jpg')
                 img_content = utils.arr_to_binary(val)
-                message = Message(img_content,
-                                  content_type='image/jpeg',
-                                  application_headers={'name': name,
-                                                       'tub_name': self._tub_name,
-                                                       'index': self._current_idx})
+                name = self.make_file_name(key, ext='.jpg')
+                message = self._build_image_message(image_name=name, img_content=img_content, part=key)
                 json_data[key] = name
-                self._publish(message)
+                self._publish(message, topic=self._topic + "/image/" + key)
 
             else:
                 logger.warning('Tub does not know what to do with this type %s for key %s', typ, key)
                 return
-        self._publish(Message(json.dumps(json_data, cls=NumpyEncoder),
-                              content_type='application/json',
-                              application_headers={'name': self._get_json_record_name(),
-                                                   'tub_name': self._tub_name,
-                                                   'index': self._current_idx}))
+        msg = {
+                'content_type': 'application/json',
+                'application_headers': {
+                    'name': self._get_json_record_name(),
+                    'tub_name': self._tub_name, 
+                    'index': self._current_idx
+                },
+                'payload': json_data
+              }
+        self._publish(message=msg, topic=self._topic + '/parts')
+
+    def _build_image_message(self, image_name, part, img_content):
+        return {'payload': base64.standard_b64encode(img_content).decode('utf-8'),
+                'content_type': 'image/jpeg',
+                'application_headers': {
+                    'name': image_name,
+                    'part': part,
+                    'tub_name': self._tub_name,
+                    'index': self._current_idx
+                }
+                }
 
     def _get_json_record_name(self):
         return 'record_{0}.json'.format(self._current_idx)
@@ -113,12 +118,13 @@ class TubAmqpWriter:
         name = name.replace('/', '-')
         return name
 
-    def _publish(self, message):
-        self._channel.basic_publish(msg=message, exchange=self._exchange, routing_key=self._queue_name)
+    def _publish(self, message, topic):
+        self._mqtt_client.publish(payload=json.dumps(message, cls=NumpyEncoder), topic=topic, qos=self._qos)
 
     def shutdown(self):
-        if self._connection:
-            self._connection.close()
+        if self._mqtt_client:
+            self._mqtt_client.loop_stop()
+            self._mqtt_client.disconnect()
 
     def _reset_tub_name(self):
         self._tub_name = datetime.now().strftime('%Y%m%d_%H%M%S')

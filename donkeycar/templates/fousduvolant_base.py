@@ -1,4 +1,5 @@
 import logging
+import platform
 
 from donkeycar import Vehicle
 from donkeycar.parts.arduino import SerialPart
@@ -6,7 +7,7 @@ from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
     ContourController, AngleProcessorMiddleLine, ImagePilot, ContoursDetector, \
     ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, ThrottleControllerSteeringBased, \
     ThrottleControllerFixedSpeed
-from donkeycar.parts.data import TubAmqpWriter
+from donkeycar.parts.mqtt import MqttPart
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
 
@@ -113,7 +114,16 @@ class BaseVehicle(Vehicle):
 
         self._configure_car_hardware(cfg)
 
-        inputs_amqp = {
+        self._configure_mqtt_part(cfg)
+
+        logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
+
+    def _configure_mqtt_part(self, cfg):
+        if not cfg.MQTT_ENABLE:
+            return
+
+        logger.info("Start mqtt part")
+        inputs_mqtt = {
             'cam/image_array': 'image_array',
             'img/gray': 'image_array',
             'img/processed': 'image_array',
@@ -127,17 +137,22 @@ class BaseVehicle(Vehicle):
             'shock': 'boolean',
             'user/mode': 'str'
         }
-
         inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'user/angle', 'user/throttle',
                   'pilot/angle', 'pilot/throttle', 'threshold_limit', 'centroids', 'shock', 'user/mode']
-        self.add(TubAmqpWriter(
-            inputs=inputs,
-            input_types=inputs_amqp,
-            queue_name='fous_du_volant'),
+        self.add(
+            MqttPart(
+                inputs=inputs,
+                input_types=inputs_mqtt,
+                hostname=cfg.MQTT_HOSTNAME,
+                port=cfg.MQTT_PORT,
+                client_id=platform.node(),
+                qos=cfg.MQTT_QOS,
+                topic='fousduvolant/' + platform.node(),
+                username=platform.node(),
+                password=platform.node()
+            ),
             inputs=inputs
         )
-
-        logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
 
     @staticmethod
     def _configure_throttle_controller(cfg):
