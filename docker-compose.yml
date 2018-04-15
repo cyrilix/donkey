@@ -1,0 +1,33 @@
+---
+version: "3.6"
+
+services:
+
+  nodered:
+    build:
+      context: ./node-red-docker/
+      dockerfile: ./latest/Dockerfile
+    hostname: nodered
+    ports:
+      - "1880:1880"
+    volumes:
+      - type: bind
+        source: ./data
+        target:  /data
+    environment:
+      TZ: "Europe/Paris"
+
+
+  mqtt:
+    image: cyrilix/rabbitmq-mqtt
+    hostname: mqtt
+    ports:
+      - "5682:5682"
+      - "15672:15672"
+      - "1883:1883"
+      - "8883:8883"
+    environment:
+      HOSTNAME: mqtt
+      RABBITMQ_NODENAME: mqtt
+      TZ: "Europe/Paris"
+
