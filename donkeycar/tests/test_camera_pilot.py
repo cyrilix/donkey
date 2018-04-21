@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @pytest.fixture
 def pilot():
     return ImagePilot(angle_estimator=AngleProcessorMiddleLine(image_resolution=(120, 160)),
-                      throttle_controller=ThrottleControllerFixedSpeed(throttle_value=0.1))
+                      throttle_controller=ThrottleControllerFixedSpeed(throttle_value=0.1, stop_on_shock=True))
 
 
 def _load_img(img):
@@ -28,29 +28,29 @@ def _load_img_gray(img):
 
 class TestDrive:
 
-    def test_blank(self, pilot):
+    def test_blank(self, pilot: ImagePilot):
         assert pilot.run([], False) == (0.0, 0.1)
         assert pilot.run(None, False) == (0.0, 0.1)
 
-    def test_on_error(self, pilot):
+    def test_on_error(self, pilot: ImagePilot):
         def throw_error(centroids):
             raise ValueError()
 
         pilot._angle_estimator.__dict__['estimate'] = throw_error
         assert pilot.run([(10, 20)], False) == (0.0, 0.0)
 
-    def test_straight_line(self, pilot):
+    def test_straight_line(self, pilot: ImagePilot):
         angle, throttle = pilot.run([(75, 110), (80, 85)], False)
 
         assert throttle == 0.1
         assert 0.1 >= angle
 
-    def test_turn_right(self, pilot):
+    def test_turn_right(self, pilot: ImagePilot):
         angle, throttle = pilot.run([(150, 150), (150, 140)], False)
         assert throttle == 0.1
         assert 0.9 >= angle >= 0.2
 
-    def test_shock(self, pilot):
+    def test_shock(self, pilot: ImagePilot):
         angle, throttle = pilot.run([(150, 150), (150, 140)], False)
         assert throttle == 0.1
         assert 0.9 >= angle >= 0.2
@@ -71,20 +71,20 @@ def angle_processor():
 
 class TestAngleEstimatorMiddleLine:
 
-    def test_no_line(self, angle_processor):
+    def test_no_line(self, angle_processor: AngleProcessorMiddleLine):
         centroids = []
         assert angle_processor.estimate(centroids) == 0.0
 
-    def test_middle_line_on_border_left(self, angle_processor):
+    def test_middle_line_on_border_left(self, angle_processor: AngleProcessorMiddleLine):
         centroids = [(2, 12)]
         assert angle_processor.estimate(centroids) == -1.0
 
-    def test_middle_line_on_left(self, angle_processor):
+    def test_middle_line_on_left(self, angle_processor: AngleProcessorMiddleLine):
         centroids = [(33, 0)]
         angle = angle_processor.estimate(centroids)
         assert -0.9 < angle < -0.2
 
-    def test_middle_line_on_middle(self, angle_processor):
+    def test_middle_line_on_middle(self, angle_processor: AngleProcessorMiddleLine):
         centroids = [(75, 0)]
         angle = angle_processor.estimate(centroids)
         assert angle == 0.0
@@ -93,12 +93,12 @@ class TestAngleEstimatorMiddleLine:
         angle = angle_processor.estimate(centroids)
         assert angle == 0.0
 
-    def test_middle_line_on_right(self, angle_processor):
+    def test_middle_line_on_right(self, angle_processor: AngleProcessorMiddleLine):
         centroids = [(120, 0)]
         angle = angle_processor.estimate(centroids)
         assert 0.2 < angle < 0.9
 
-    def test_middle_line_on_border_right(self, angle_processor):
+    def test_middle_line_on_border_right(self, angle_processor: AngleProcessorMiddleLine):
         centroids = [(155, 0)]
         angle = angle_processor.estimate(centroids)
         assert angle == 1.0
@@ -111,7 +111,7 @@ class TestThrottleControllerFixedSpeed:
         assert ThrottleControllerFixedSpeed(throttle_value=0.8).run([], False) == 0.8
 
     def test_throttle_with_shock(self):
-        controller_fixed_speed = ThrottleControllerFixedSpeed(throttle_value=0.1)
+        controller_fixed_speed = ThrottleControllerFixedSpeed(throttle_value=0.1, stop_on_shock=True)
         assert controller_fixed_speed.run([], False) == 0.1
         assert controller_fixed_speed.run([], True) == 0.0
         assert controller_fixed_speed.run([], False) == 0.0
@@ -185,23 +185,24 @@ class TestThresholdValueEstimator:
 
 @pytest.fixture
 def throttle_controller_angle():
-    return ThrottleControllerSteeringBased(min_speed=0.4, max_speed=0.8, safe_angle=0.2, dangerous_angle=0.8)
+    return ThrottleControllerSteeringBased(min_speed=0.4, max_speed=0.8, safe_angle=0.2, dangerous_angle=0.8,
+                                           stop_on_shock=True)
 
 
 class TestThrottleControllerSteeringBased:
 
-    def test_throttle_with_min_angle(self, throttle_controller_angle):
+    def test_throttle_with_min_angle(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(0.0, False) == 0.8
 
-    def test_throttle_with_max_angle(self, throttle_controller_angle):
+    def test_throttle_with_max_angle(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(1.0, False) == 0.4
 
-    def test_throttle_with_intermediate_angle(self, throttle_controller_angle):
+    def test_throttle_with_intermediate_angle(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(0.5, False) == 0.6
         assert throttle_controller_angle.run(0.8, False) == 0.72
         assert throttle_controller_angle.run(0.2, False) == 0.48
 
-    def test_throttle_with_shock(self, throttle_controller_angle):
+    def test_throttle_with_shock(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(1.0, False) > 0.1
         assert throttle_controller_angle.run(1.0, True) == 0.0
         assert throttle_controller_angle.run(1.0, False) == 0.0
