@@ -6,7 +6,7 @@ from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
     ContourController, AngleProcessorMiddleLine, ImagePilot, ContoursDetector, \
     ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, ThrottleControllerSteeringBased, \
-    ThrottleControllerFixedSpeed
+    ThrottleControllerFixedSpeed, ThresholdConfigController
 from donkeycar.parts.mqtt import MqttPart
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
@@ -45,7 +45,7 @@ class BaseVehicle(Vehicle):
 
         threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_DYNAMIC_INIT,
                                                             contours_detector=contours_detector)
-        self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['threshold_limit'])
+        self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['cfg/threshold/from_line'])
 
         threshold_controller = self._configure_threshold(cfg)
 
@@ -132,13 +132,21 @@ class BaseVehicle(Vehicle):
             'user/throttle': 'float',
             'pilot/angle': 'float',
             'pilot/throttle': 'float',
-            'threshold_limit': 'float',
+
+            'cfg/threshold/from_line': 'int',
+            'cfg/threshold/dynamic/default': 'int',
+            'cfg/threshold/dynamic/delta': 'int',
+            'cfg/threshold/limit/min': 'int',
+            'cfg/threshold/limit/max': 'int',
+
             'centroids': 'list',
             'shock': 'boolean',
             'user/mode': 'str'
         }
         inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'user/angle', 'user/throttle',
-                  'pilot/angle', 'pilot/throttle', 'threshold_limit', 'centroids', 'shock', 'user/mode']
+                  'pilot/angle', 'pilot/throttle', 'cfg/threshold/from_line', 'cfg/threshold/dynamic/default',
+                  'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max',
+                  'centroids', 'shock', 'user/mode']
         self.add(
             MqttPart(
                 inputs=inputs,
@@ -180,21 +188,23 @@ class BaseVehicle(Vehicle):
         pass
 
     def _configure_threshold(self, cfg):
+        threshold_config = ThresholdConfigController(cfg)
+        self.add(threshold_config,
+                 inputs=['cfg/threshold/from_line'],
+                 outputs=['cfg/threshold/limit/min', 'cfg/threshold/limit/max',
+                          'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta'])
+
         if cfg.THRESHOLD_DYNAMIC_ENABLE:
             logger.info("Init dynamic threshold controller")
-            threshold_controller = ThresholdDynamicController(debug=cfg.DEBUG_PILOT,
-                                                              threshold_default=cfg.THRESHOLD_DYNAMIC_INIT,
-                                                              threshold_delta=cfg.THRESHOLD_DYNAMIC_DELTA)
+            threshold_controller = ThresholdDynamicController(debug=cfg.DEBUG_PILOT)
             self.add(threshold_controller,
-                     inputs=['img/gray', 'threshold_limit'],
+                     inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
                      outputs=['img/processed'])
         else:
             logger.info("Init static threshold controller")
-            threshold_controller = ThresholdStaticController(debug=cfg.DEBUG_PILOT,
-                                                             limit_min=cfg.THRESHOLD_LIMIT_MIN,
-                                                             limit_max=cfg.THRESHOLD_LIMIT_MAX)
+            threshold_controller = ThresholdStaticController(debug=cfg.DEBUG_PILOT)
             self.add(threshold_controller,
-                     inputs=['img/gray'],
+                     inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
                      outputs=['img/processed'])
 
         return threshold_controller

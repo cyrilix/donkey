@@ -174,12 +174,10 @@ class ThresholdStaticController:
     Apply threshold process to gray images
     """
 
-    def __init__(self, limit_min=190, limit_max=255, debug=False):
+    def __init__(self, debug=False):
         self._crop_from_top = 20
         self._debug = debug
         self._cache = None
-        self._limit_min = limit_min
-        self._limit_max = limit_max
 
     def shutdown(self):
         pass
@@ -187,9 +185,9 @@ class ThresholdStaticController:
     def cache_value(self):
         return self._cache
 
-    def run(self, image_gray):
+    def run(self, image_gray, limit_min, limit_max):
         try:
-            img = self._threshold(image_gray)
+            img = self._threshold(image_gray, limit_min, limit_max)
             self._cache = img
             return img
         except Exception:
@@ -197,23 +195,49 @@ class ThresholdStaticController:
             logging.exception("Unexpected error")
             return self._cache
 
-    def _threshold(self, img):
-        (_, binary_min) = cv2.threshold(img.copy(), self._limit_min, 255, 0, cv2.THRESH_BINARY)
-        (_, binary_max) = cv2.threshold(img.copy(), self._limit_max, 255, 0, cv2.THRESH_BINARY_INV)
+    def _threshold(self, img, limit_min, limit_max):
+        (_, binary_min) = cv2.threshold(img.copy(), limit_min, 255, 0, cv2.THRESH_BINARY)
+        (_, binary_max) = cv2.threshold(img.copy(), limit_max, 255, 0, cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
+
+class ThresholdConfigController:
+
+    def __init__(self, cfg):
+        self._limit_min = cfg.THRESHOLD_LIMIT_MIN
+        self._limit_max = cfg.THRESHOLD_LIMIT_MAX
+        self._dynamic_enabled = cfg.THRESHOLD_DYNAMIC_ENABLE
+        self._dynamic_default_threshold = cfg.THRESHOLD_DYNAMIC_INIT
+        self._dynamic_delta = cfg.THRESHOLD_DYNAMIC_DELTA
+
+    def run(self, threshold_from_line):
+        """
+        :return: parts
+            * cfg/threshold/limit/min
+            * cfg/threshold/limit/max
+            * cfg/threshold/dynamic/default
+            * cfg/threshold/dynamic/delta
+
+        """
+        if self._dynamic_enabled:
+            self._dynamic_default_threshold = threshold_from_line
+            self._limit_min = self._dynamic_default_threshold - self._dynamic_delta
+            self._limit_max = self._dynamic_default_threshold + self._dynamic_delta
+        return self._limit_min, self._limit_max, \
+               self._dynamic_default_threshold, self._dynamic_delta
+
+    def shutdown(self):
+        pass
 
 class ThresholdDynamicController:
     """
     Apply threshold process to gray images
     """
 
-    def __init__(self, threshold_default=190, threshold_delta=10, debug=False):
+    def __init__(self, debug=False):
         self._crop_from_top = 20
         self._debug = debug
         self._video_frame = None
-        self._threshold_default = threshold_default
-        self._threshold_delta = threshold_delta
 
     def shutdown(self):
         pass
@@ -221,9 +245,9 @@ class ThresholdDynamicController:
     def video_frame(self):
         return self._video_frame
 
-    def run(self, image_gray, threshold_value):
+    def run(self, image_gray, threshold_limit_min, threshold_limit_max):
         try:
-            img = self._threshold(image_gray, threshold_value)
+            img = self._threshold(image_gray, threshold_limit_min, threshold_limit_max)
             self._video_frame = img
             return img
         except Exception:
@@ -231,10 +255,10 @@ class ThresholdDynamicController:
             logging.exception("Unexpected error")
             return self._video_frame
 
-    def _threshold(self, img, threshold_value):
-        (_, binary_min) = cv2.threshold(img.copy(), (threshold_value - self._threshold_delta), 255, 0,
+    def _threshold(self, img, threshold_limit_min, threshold_limit_max):
+        (_, binary_min) = cv2.threshold(img.copy(), threshold_limit_min, 255, 0,
                                         cv2.THRESH_BINARY)
-        (_, binary_max) = cv2.threshold(img.copy(), (threshold_value + self._threshold_delta), 255, 0,
+        (_, binary_max) = cv2.threshold(img.copy(), threshold_limit_max, 255, 0,
                                         cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 

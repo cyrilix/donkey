@@ -119,20 +119,21 @@ class TestThrottleControllerFixedSpeed:
 
 @pytest.fixture
 def threshold_dynamic_controller():
-    return ThresholdDynamicController(threshold_default=100, threshold_delta=10)
+    return ThresholdDynamicController()
 
 
 class TestThresholdDynamicController:
 
-    def test_straight_line(self, threshold_dynamic_controller):
-        assert len(threshold_dynamic_controller.run(_load_img_gray("straight_line_1.jpg"), threshold_value=180)) > 0
+    def test_straight_line(self, threshold_dynamic_controller: ThresholdDynamicController):
+        assert len(threshold_dynamic_controller.run(_load_img_gray("straight_line_1.jpg"),
+                                                    threshold_limit_min=180, threshold_limit_max=255)) > 0
 
-    def test_threshold_min_max(self, threshold_dynamic_controller):
+    def test_threshold_min_max(self, threshold_dynamic_controller: ThresholdDynamicController):
         img_gray = np.ones((256, 256))
         for i in range(0, 256):
             img_gray[i] = np.ones(256) * i
 
-        img = threshold_dynamic_controller.run(img_gray, threshold_value=180)
+        img = threshold_dynamic_controller.run(img_gray, threshold_limit_min=170, threshold_limit_max=190)
 
         for i in range(170):
             assert list(img[(i, ...)]) == list(np.zeros((256,)))
@@ -146,25 +147,26 @@ class TestThresholdDynamicController:
 
 @pytest.fixture
 def threshold_static_controller():
-    return ThresholdStaticController(limit_min=100, limit_max=120)
+    return ThresholdStaticController()
 
 
 class TestThresholdStaticController:
 
-    def test_straight_line(self, threshold_static_controller):
-        assert len(threshold_static_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
+    def test_straight_line(self, threshold_static_controller: ThresholdStaticController):
+        assert len(threshold_static_controller.run(_load_img_gray("straight_line_1.jpg"),
+                                                   limit_min=180, limit_max=255)) > 0
 
-    def test_threshold_min_max(self, threshold_static_controller):
+    def test_threshold_min_max(self, threshold_static_controller: ThresholdStaticController):
         img_gray = np.ones((256, 256))
         for i in range(0, 256):
             img_gray[i] = np.ones(256) * i
 
-        img = threshold_static_controller.run(img_gray)
+        img = threshold_static_controller.run(img_gray, limit_min=99, limit_max=120)
 
         for i in range(99):
             assert list(img[(i, ...)]) == list(np.zeros((256,)))
 
-        for i in range(110, 121):
+        for i in range(100, 121):
             assert list(img[i]) == list(np.ones((256,)) * 255)
 
         for i in range(121, 256):
