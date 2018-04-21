@@ -229,6 +229,7 @@ class ThresholdConfigController:
     def shutdown(self):
         pass
 
+
 class ThresholdDynamicController:
     """
     Apply threshold process to gray images
