@@ -1,4 +1,4 @@
 pytest
 matplotlib
-
-
+pytest-docker-compose
+docker

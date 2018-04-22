@@ -1,14 +1,23 @@
 import logging
+import logging
+import typing
 
 import cv2
 import numpy as np
 import pytest
+import requests
+from paho.mqtt import client as mqtt
+from paho.mqtt.client import Client
+from pytest_docker_compose import NetworkInfo
+from time import sleep
 
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
     ThrottleControllerFixedSpeed, ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, \
-    ThrottleControllerSteeringBased
+    ThrottleControllerSteeringBased, ThresholdConfigController
 
 logger = logging.getLogger(__name__)
+
+pytest_plugins = ["docker_compose"]
 
 
 @pytest.fixture
@@ -206,3 +215,98 @@ class TestThrottleControllerSteeringBased:
         assert throttle_controller_angle.run(1.0, False) > 0.1
         assert throttle_controller_angle.run(1.0, True) == 0.0
         assert throttle_controller_angle.run(1.0, False) == 0.0
+
+
+def wait_port_open(host: str, port: int):
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    while True:
+        result = sock.connect_ex((host, port))
+        if result == 0:
+            return
+        sleep(0.5)
+
+
+@pytest.fixture(name='threshold_config_controller_mqtt')
+def fixture_threshold_config_controller_mqtt(docker_network_info: typing.Dict[str, typing.List[NetworkInfo]]):
+    mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
+    host = 'localhost'
+    port = 1883
+    wait_port_open(host=host, port=port)
+    return ThresholdConfigController(limit_min=150, limit_max=200,
+                                     threshold_dynamic=True, threshold_default=160, threshold_delta=20,
+                                     mqtt_enable=True,
+                                     mqtt_hostname=host,
+                                     mqtt_port=port,
+                                     mqtt_qos=1,
+                                     mqtt_topic='test/car/config/threshold/#')
+
+
+@pytest.fixture(name='threshold_config_controller_static')
+def fixture_threshold_config_controller_static():
+    return ThresholdConfigController(limit_min=150, limit_max=200,
+                                     threshold_dynamic=False, threshold_default=160, threshold_delta=20,
+                                     mqtt_enable=False)
+
+
+@pytest.fixture(name='mqtt_config')
+def fixture_mqtt_config(docker_network_info: typing.Dict[str, typing.List[NetworkInfo]]):
+    wait_port_open('localhost', 1883)
+    mqtt_client = mqtt.Client(client_id="test-push-config", clean_session=False, userdata=None, protocol=mqtt.MQTTv311)
+    mqtt_client.connect(host='localhost', port=1883, keepalive=60)
+    mqtt_client.loop_start()
+    yield mqtt_client
+    mqtt_client.loop_stop()
+    mqtt_client.disconnect()
+
+
+class TestThresholdConfigController:
+
+    @staticmethod
+    def _wait_all_message_consumed(queue, host='localhost', port=15672):
+        while True:
+            try:
+                r = requests.get(f'http://{host}:{port}/api/queues/%2F/{queue}?columns=messages',
+                                 auth=('guest', 'guest'))
+                content = r.json()
+                if 'messages' in content and content['messages'] == 0:
+                    return
+            except:
+                logger.debug(f'Wait port {port} open')
+            sleep(0.5)
+
+    def test_static_value(self, threshold_config_controller_static: ThresholdConfigController):
+        t_min, t_max, t_default, t_delta = threshold_config_controller_static.run(100)
+        assert t_min == 150
+        assert t_max == 200
+        assert t_default == 160
+
+    def test_dynamic_value(self, threshold_config_controller_static: ThresholdConfigController):
+        threshold_config_controller_static._dynamic_enabled = True
+        t_min, t_max, t_default, t_delta = threshold_config_controller_static.run(100)
+        assert t_min == 80
+        assert t_max == 120
+        assert t_default == 100
+        assert t_delta == 20
+
+    def test_modify_config_min_max_with_mqtt(self, threshold_config_controller_mqtt: ThresholdConfigController,
+                                             mqtt_config: Client):
+        threshold_config_controller_mqtt._dynamic_enabled = False
+        t_min, t_max, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        assert t_min == 150
+        assert t_max == 200
+        
+        self._wait_all_message_consumed(f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
+                                        f'qos{threshold_config_controller_mqtt.qos}')
+
+        msg = mqtt_config.publish(topic='test/car/config/threshold/min', payload="200", qos=1)
+        msg.wait_for_publish()
+        msg = mqtt_config.publish(topic='test/car/config/threshold/max', payload="220", qos=1)
+        msg.wait_for_publish()
+
+        self._wait_all_message_consumed(
+            f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
+            f'qos{threshold_config_controller_mqtt.qos}')
+        t_min, t_max, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        assert t_min == 200
+        assert t_max == 220

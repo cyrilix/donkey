@@ -190,7 +190,17 @@ class BaseVehicle(Vehicle):
         pass
 
     def _configure_threshold(self, cfg):
-        threshold_config = ThresholdConfigController(cfg)
+        limit_min = cfg.THRESHOLD_LIMIT_MIN
+        limit_max = cfg.THRESHOLD_LIMIT_MAX
+        dynamic_enabled = cfg.THRESHOLD_DYNAMIC_ENABLE
+        dynamic_default_threshold = cfg.THRESHOLD_DYNAMIC_INIT
+        dynamic_delta = cfg.THRESHOLD_DYNAMIC_DELTA
+        mqtt_config_topics = cfg.MQTT_CONFIG_TOPICS
+        threshold_config = ThresholdConfigController(limit_min=limit_min, limit_max=limit_max,
+                                                     threshold_dynamic=dynamic_enabled,
+                                                     threshold_default=dynamic_default_threshold,
+                                                     threshold_delta=dynamic_delta,
+                                                     mqtt_topic=mqtt_config_topics)
         self.add(threshold_config,
                  inputs=['cfg/threshold/from_line'],
                  outputs=['cfg/threshold/limit/min', 'cfg/threshold/limit/max',

@@ -21,7 +21,7 @@ class NumpyEncoder(json.JSONEncoder):
 
 class MqttPart:
     def __init__(self, inputs, input_types, topic='car', hostname='localhost', port=1883,
-                 client_id="car", username=None, password=None, qos=1, publish_all_events=True):
+                 client_id="parts_publish", username=None, password=None, qos=1, publish_all_events=True):
         self._qos = qos
         self._previous_mode = None
         self.record_time = 0

@@ -2,6 +2,8 @@ import logging
 
 import cv2
 from imutils import contours
+from paho.mqtt import client as mqtt
+from paho.mqtt.client import Client, MQTTMessage
 
 logger = logging.getLogger(__name__)
 
@@ -195,22 +197,66 @@ class ThresholdStaticController:
             logging.exception("Unexpected error")
             return self._cache
 
-    def _threshold(self, img, limit_min, limit_max):
+    @staticmethod
+    def _threshold(img, limit_min, limit_max):
         (_, binary_min) = cv2.threshold(img.copy(), limit_min, 255, 0, cv2.THRESH_BINARY)
         (_, binary_max) = cv2.threshold(img.copy(), limit_max, 255, 0, cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
 
+def _on_connect(client: Client, userdata, flags, rc: int):
+    logger.info("Connected with result code %s", rc)
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    client.subscribe(userdata.topic, userdata.qos)
+    logger.info("Subscribe to %s topic", userdata.topic)
+
+
+def _on_message(client: Client, userdata, msg: MQTTMessage):
+    logger.info('new message: %s', msg.topic)
+    if msg.topic.endswith("threshold/min"):
+        new_limit = int(msg.payload)
+        logger.info("Update threshold min limit from %s to %s", userdata.limit_min, new_limit)
+        userdata.limit_min = new_limit
+    elif msg.topic.endswith("threshold/max"):
+        new_limit = int(msg.payload)
+        logger.info("Update threshold max limit from %s to %s", userdata.limit_max, new_limit)
+        userdata.limit_max = new_limit
+    else:
+        logger.warning("Unexpected msg for topic %s", msg.topic)
+
+
 class ThresholdConfigController:
 
-    def __init__(self, cfg):
-        self._limit_min = cfg.THRESHOLD_LIMIT_MIN
-        self._limit_max = cfg.THRESHOLD_LIMIT_MAX
-        self._dynamic_enabled = cfg.THRESHOLD_DYNAMIC_ENABLE
-        self._dynamic_default_threshold = cfg.THRESHOLD_DYNAMIC_INIT
-        self._dynamic_delta = cfg.THRESHOLD_DYNAMIC_DELTA
+    def __init__(self, limit_min: int, limit_max: int, threshold_dynamic: bool, threshold_default: int,
+                 threshold_delta: int,
+                 mqtt_enable: bool = True, mqtt_topic: str = 'config/threshold/#', mqtt_hostname: str = 'localhost',
+                 mqtt_port: int = 1883,
+                 mqtt_client_id: str = "donkey-config-",
+                 mqtt_username: str = None, mqtt_password: str = None, mqtt_qos: int = 0):
+        self.limit_min = limit_min
+        self.limit_max = limit_max
+        self._dynamic_enabled = threshold_dynamic
+        self._dynamic_default_threshold = threshold_default
+        self._dynamic_delta = threshold_delta
+        self._mqtt_client_id = mqtt_client_id
 
-    def run(self, threshold_from_line):
+        if mqtt_enable:
+            logger.info("Init mqtt connection to %s topic", mqtt_topic)
+            self.topic = mqtt_topic
+            self.qos = mqtt_qos
+            self._mqtt_client = mqtt.Client(client_id=mqtt_client_id, clean_session=False, userdata=self,
+                                            protocol=mqtt.MQTTv311)
+
+            if mqtt_username:
+                self._mqtt_client.username_pw_set(username=mqtt_username, password=mqtt_password)
+            self._mqtt_client.on_connect = _on_connect
+            self._mqtt_client.on_message = _on_message
+            self._mqtt_client.connect(mqtt_hostname, mqtt_port, 60)
+            self._mqtt_client.loop_start()
+            self._mqtt_client.subscribe(self.topic, self.qos)
+
+    def run(self, threshold_from_line: int):
         """
         :return: parts
             * cfg/threshold/limit/min
@@ -221,13 +267,15 @@ class ThresholdConfigController:
         """
         if self._dynamic_enabled:
             self._dynamic_default_threshold = threshold_from_line
-            self._limit_min = self._dynamic_default_threshold - self._dynamic_delta
-            self._limit_max = self._dynamic_default_threshold + self._dynamic_delta
-        return self._limit_min, self._limit_max, \
+            self.limit_min = self._dynamic_default_threshold - self._dynamic_delta
+            self.limit_max = self._dynamic_default_threshold + self._dynamic_delta
+        return self.limit_min, self.limit_max, \
                self._dynamic_default_threshold, self._dynamic_delta
 
     def shutdown(self):
-        pass
+        if self._mqtt_client:
+            self._mqtt_client.loop_stop()
+            self._mqtt_client.disconnect()
 
 
 class ThresholdDynamicController:
