@@ -3,6 +3,7 @@
   "description": "A Node-RED Project",
   "version": "0.0.1",
   "dependencies": {
+    "node-red-contrib-multipart-stream-encoder": "0.0.2",
     "node-red-dashboard": "~2.9.0"
   }
 }
