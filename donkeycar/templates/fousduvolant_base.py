@@ -157,7 +157,9 @@ class BaseVehicle(Vehicle):
                 qos=cfg.MQTT_QOS,
                 topic='fousduvolant/' + platform.node(),
                 username=platform.node(),
-                password=platform.node()
+                password=platform.node(),
+                publish_all_events=cfg.MQTT_PUBLISH_ALL_EVENTS
+
             ),
             inputs=inputs
         )

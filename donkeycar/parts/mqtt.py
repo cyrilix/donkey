@@ -21,7 +21,7 @@ class NumpyEncoder(json.JSONEncoder):
 
 class MqttPart:
     def __init__(self, inputs, input_types, topic='car', hostname='localhost', port=1883,
-                 client_id="car", username=None, password=None, qos=1):
+                 client_id="car", username=None, password=None, qos=1, publish_all_events=True):
         self._qos = qos
         self._previous_mode = None
         self.record_time = 0
@@ -36,6 +36,7 @@ class MqttPart:
         self._mqtt_client.connect(hostname, port, 60)
         self._mqtt_client.loop_start()
         self._topic = topic
+        self._publish_all_events = publish_all_events
 
     def run(self, *args):
         """
@@ -53,7 +54,7 @@ class MqttPart:
         json_data = {}
         self._current_idx += 1
 
-        if "user/mode" not in data:
+        if not self._publish_all_events and "user/mode" not in data:
             logger.warning("'user/mode' part not defined")
             return
 
@@ -62,7 +63,7 @@ class MqttPart:
             self._reset_tub_name()
             self._previous_mode = user_mode
 
-        if "user" == user_mode:
+        if not self._publish_all_events and "user" == user_mode:
             # Don't send event when autonomous drive not active
             return
 
