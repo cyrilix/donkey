@@ -171,39 +171,6 @@ class ThrottleControllerSteeringBased:
         return round((angle * speed_interv) + self._min_speed, 2)
 
 
-class ThresholdStaticController:
-    """
-    Apply threshold process to gray images
-    """
-
-    def __init__(self, debug=False):
-        self._crop_from_top = 20
-        self._debug = debug
-        self._cache = None
-
-    def shutdown(self):
-        pass
-
-    def cache_value(self):
-        return self._cache
-
-    def run(self, image_gray, limit_min, limit_max):
-        try:
-            img = self._threshold(image_gray, limit_min, limit_max)
-            self._cache = img
-            return img
-        except Exception:
-            import numpy
-            logging.exception("Unexpected error")
-            return self._cache
-
-    @staticmethod
-    def _threshold(img, limit_min, limit_max):
-        (_, binary_min) = cv2.threshold(img.copy(), limit_min, 255, 0, cv2.THRESH_BINARY)
-        (_, binary_max) = cv2.threshold(img.copy(), limit_max, 255, 0, cv2.THRESH_BINARY_INV)
-        return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
-
-
 def _on_connect(client: Client, userdata, flags, rc: int):
     logger.info("Connected with result code %s", rc)
     # Subscribing in on_connect() means that if we lose the connection and
@@ -222,6 +189,19 @@ def _on_message(client: Client, userdata, msg: MQTTMessage):
         new_limit = int(msg.payload)
         logger.info("Update threshold max limit from %s to %s", userdata.limit_max, new_limit)
         userdata.limit_max = new_limit
+    elif msg.topic.endswith("threshold/delta"):
+        new_value = int(msg.payload)
+        logger.info("Update threshold delta from %s to %s", userdata.dynamic_delta, new_value)
+        userdata.dynamic_delta = new_value
+    elif msg.topic.endswith("threshold/default"):
+        new_value = int(msg.payload)
+        logger.info("Update threshold default from %s to %s", userdata.dynamic_default, new_value)
+        userdata.dynamic_default = new_value
+    elif msg.topic.endswith("threshold/dynamic_enabled"):
+        new_value = ("true" == msg.payload.decode('utf-8').lower())
+        logger.info("Update threshold dynamic enabled from %s to %s (%s)", userdata.dynamic_enabled, new_value,
+                    msg.payload)
+        userdata.dynamic_enabled = new_value
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
 
@@ -236,9 +216,9 @@ class ThresholdConfigController:
                  mqtt_username: str = None, mqtt_password: str = None, mqtt_qos: int = 0):
         self.limit_min = limit_min
         self.limit_max = limit_max
-        self._dynamic_enabled = threshold_dynamic
-        self._dynamic_default_threshold = threshold_default
-        self._dynamic_delta = threshold_delta
+        self.dynamic_enabled = threshold_dynamic
+        self.dynamic_default = threshold_default
+        self.dynamic_delta = threshold_delta
         self._mqtt_client_id = mqtt_client_id
 
         if mqtt_enable:
@@ -256,21 +236,21 @@ class ThresholdConfigController:
             self._mqtt_client.loop_start()
             self._mqtt_client.subscribe(self.topic, self.qos)
 
-    def run(self, threshold_from_line: int):
+    def run(self, threshold_from_line: int) -> (int, int, bool, int, int):
         """
         :return: parts
             * cfg/threshold/limit/min
             * cfg/threshold/limit/max
+            * cfg/threshold/dynamic/enabled
             * cfg/threshold/dynamic/default
             * cfg/threshold/dynamic/delta
-
         """
-        if self._dynamic_enabled:
-            self._dynamic_default_threshold = threshold_from_line
-            self.limit_min = self._dynamic_default_threshold - self._dynamic_delta
-            self.limit_max = self._dynamic_default_threshold + self._dynamic_delta
+        if self.dynamic_enabled:
+            self.dynamic_default = threshold_from_line
+            self.limit_min = self.dynamic_default - self.dynamic_delta
+            self.limit_max = self.dynamic_default + self.dynamic_delta
         return self.limit_min, self.limit_max, \
-               self._dynamic_default_threshold, self._dynamic_delta
+               self.dynamic_enabled, self.dynamic_default, self.dynamic_delta
 
     def shutdown(self):
         if self._mqtt_client:
@@ -278,7 +258,7 @@ class ThresholdConfigController:
             self._mqtt_client.disconnect()
 
 
-class ThresholdDynamicController:
+class ThresholdController:
     """
     Apply threshold process to gray images
     """
@@ -294,7 +274,7 @@ class ThresholdDynamicController:
     def video_frame(self):
         return self._video_frame
 
-    def run(self, image_gray, threshold_limit_min, threshold_limit_max):
+    def run(self, image_gray, threshold_limit_min: int, threshold_limit_max: int):
         try:
             img = self._threshold(image_gray, threshold_limit_min, threshold_limit_max)
             self._video_frame = img
@@ -304,11 +284,10 @@ class ThresholdDynamicController:
             logging.exception("Unexpected error")
             return self._video_frame
 
-    def _threshold(self, img, threshold_limit_min, threshold_limit_max):
-        (_, binary_min) = cv2.threshold(img.copy(), threshold_limit_min, 255, 0,
-                                        cv2.THRESH_BINARY)
-        (_, binary_max) = cv2.threshold(img.copy(), threshold_limit_max, 255, 0,
-                                        cv2.THRESH_BINARY_INV)
+    @staticmethod
+    def _threshold(img, threshold_limit_min: int, threshold_limit_max: int):
+        (_, binary_min) = cv2.threshold(img.copy(), threshold_limit_min, 255, 0, cv2.THRESH_BINARY)
+        (_, binary_max) = cv2.threshold(img.copy(), threshold_limit_max, 255, 0, cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
 

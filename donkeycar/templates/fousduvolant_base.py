@@ -5,7 +5,7 @@ from donkeycar import Vehicle
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
     ContourController, AngleProcessorMiddleLine, ImagePilot, ContoursDetector, \
-    ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, ThrottleControllerSteeringBased, \
+    ThresholdValueEstimator, ThresholdController, ThrottleControllerSteeringBased, \
     ThrottleControllerFixedSpeed, ThresholdConfigController
 from donkeycar.parts.mqtt import MqttPart
 from donkeycar.parts.transform import Lambda
@@ -134,6 +134,7 @@ class BaseVehicle(Vehicle):
             'pilot/throttle': 'float',
 
             'cfg/threshold/from_line': 'int',
+            'cfg/threshold/dynamic/enabled': 'boolean',
             'cfg/threshold/dynamic/default': 'int',
             'cfg/threshold/dynamic/delta': 'int',
             'cfg/threshold/limit/min': 'int',
@@ -144,9 +145,9 @@ class BaseVehicle(Vehicle):
             'user/mode': 'str'
         }
         inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'user/angle', 'user/throttle',
-                  'pilot/angle', 'pilot/throttle', 'cfg/threshold/from_line', 'cfg/threshold/dynamic/default',
-                  'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max',
-                  'centroids', 'shock', 'user/mode']
+                  'pilot/angle', 'pilot/throttle', 'cfg/threshold/from_line', 'cfg/threshold/dynamic/enabled',
+                  'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min',
+                  'cfg/threshold/limit/max', 'centroids', 'shock', 'user/mode']
         self.add(
             MqttPart(
                 inputs=inputs,
@@ -190,6 +191,7 @@ class BaseVehicle(Vehicle):
         pass
 
     def _configure_threshold(self, cfg):
+        logger.info("Init threshold controller")
         limit_min = cfg.THRESHOLD_LIMIT_MIN
         limit_max = cfg.THRESHOLD_LIMIT_MAX
         dynamic_enabled = cfg.THRESHOLD_DYNAMIC_ENABLE
@@ -204,19 +206,12 @@ class BaseVehicle(Vehicle):
         self.add(threshold_config,
                  inputs=['cfg/threshold/from_line'],
                  outputs=['cfg/threshold/limit/min', 'cfg/threshold/limit/max',
+                          'cfg/threshold/dynamic/enabled',
                           'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta'])
 
-        if cfg.THRESHOLD_DYNAMIC_ENABLE:
-            logger.info("Init dynamic threshold controller")
-            threshold_controller = ThresholdDynamicController(debug=cfg.DEBUG_PILOT)
-            self.add(threshold_controller,
-                     inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
-                     outputs=['img/processed'])
-        else:
-            logger.info("Init static threshold controller")
-            threshold_controller = ThresholdStaticController(debug=cfg.DEBUG_PILOT)
-            self.add(threshold_controller,
-                     inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
-                     outputs=['img/processed'])
+        threshold_controller = ThresholdController(debug=cfg.DEBUG_PILOT)
+        self.add(threshold_controller,
+                 inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
+                 outputs=['img/processed'])
 
         return threshold_controller

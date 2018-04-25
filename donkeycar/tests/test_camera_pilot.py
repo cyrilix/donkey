@@ -1,5 +1,4 @@
 import logging
-import logging
 import typing
 
 import cv2
@@ -12,7 +11,7 @@ from pytest_docker_compose import NetworkInfo
 from time import sleep
 
 from donkeycar.parts.camera_pilot import ImagePilot, AngleProcessorMiddleLine, \
-    ThrottleControllerFixedSpeed, ThresholdValueEstimator, ThresholdDynamicController, ThresholdStaticController, \
+    ThrottleControllerFixedSpeed, ThresholdValueEstimator, ThresholdController, \
     ThrottleControllerSteeringBased, ThresholdConfigController
 
 logger = logging.getLogger(__name__)
@@ -127,22 +126,22 @@ class TestThrottleControllerFixedSpeed:
 
 
 @pytest.fixture
-def threshold_dynamic_controller():
-    return ThresholdDynamicController()
+def threshold_controller():
+    return ThresholdController()
 
 
-class TestThresholdDynamicController:
+class TestThresholdController:
 
-    def test_straight_line(self, threshold_dynamic_controller: ThresholdDynamicController):
-        assert len(threshold_dynamic_controller.run(_load_img_gray("straight_line_1.jpg"),
-                                                    threshold_limit_min=180, threshold_limit_max=255)) > 0
+    def test_straight_line(self, threshold_controller: ThresholdController):
+        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"),
+                                            threshold_limit_min=180, threshold_limit_max=255)) > 0
 
-    def test_threshold_min_max(self, threshold_dynamic_controller: ThresholdDynamicController):
+    def test_threshold_min_max(self, threshold_controller: ThresholdController):
         img_gray = np.ones((256, 256))
         for i in range(0, 256):
             img_gray[i] = np.ones(256) * i
 
-        img = threshold_dynamic_controller.run(img_gray, threshold_limit_min=170, threshold_limit_max=190)
+        img = threshold_controller.run(img_gray, threshold_limit_min=170, threshold_limit_max=190)
 
         for i in range(170):
             assert list(img[(i, ...)]) == list(np.zeros((256,)))
@@ -151,34 +150,6 @@ class TestThresholdDynamicController:
             assert list(img[i]) == list(np.ones((256,)) * 255)
 
         for i in range(191, 256):
-            assert list(img[i]) == list(np.zeros((256,)))
-
-
-@pytest.fixture
-def threshold_static_controller():
-    return ThresholdStaticController()
-
-
-class TestThresholdStaticController:
-
-    def test_straight_line(self, threshold_static_controller: ThresholdStaticController):
-        assert len(threshold_static_controller.run(_load_img_gray("straight_line_1.jpg"),
-                                                   limit_min=180, limit_max=255)) > 0
-
-    def test_threshold_min_max(self, threshold_static_controller: ThresholdStaticController):
-        img_gray = np.ones((256, 256))
-        for i in range(0, 256):
-            img_gray[i] = np.ones(256) * i
-
-        img = threshold_static_controller.run(img_gray, limit_min=99, limit_max=120)
-
-        for i in range(99):
-            assert list(img[(i, ...)]) == list(np.zeros((256,)))
-
-        for i in range(100, 121):
-            assert list(img[i]) == list(np.ones((256,)) * 255)
-
-        for i in range(121, 256):
             assert list(img[i]) == list(np.zeros((256,)))
 
 
@@ -276,14 +247,14 @@ class TestThresholdConfigController:
             sleep(0.5)
 
     def test_static_value(self, threshold_config_controller_static: ThresholdConfigController):
-        t_min, t_max, t_default, t_delta = threshold_config_controller_static.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_static.run(100)
         assert t_min == 150
         assert t_max == 200
         assert t_default == 160
 
     def test_dynamic_value(self, threshold_config_controller_static: ThresholdConfigController):
-        threshold_config_controller_static._dynamic_enabled = True
-        t_min, t_max, t_default, t_delta = threshold_config_controller_static.run(100)
+        threshold_config_controller_static.dynamic_enabled = True
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_static.run(100)
         assert t_min == 80
         assert t_max == 120
         assert t_default == 100
@@ -291,11 +262,11 @@ class TestThresholdConfigController:
 
     def test_modify_config_min_max_with_mqtt(self, threshold_config_controller_mqtt: ThresholdConfigController,
                                              mqtt_config: Client):
-        threshold_config_controller_mqtt._dynamic_enabled = False
-        t_min, t_max, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        threshold_config_controller_mqtt.dynamic_enabled = False
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
         assert t_min == 150
         assert t_max == 200
-        
+
         self._wait_all_message_consumed(f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
                                         f'qos{threshold_config_controller_mqtt.qos}')
 
@@ -307,6 +278,36 @@ class TestThresholdConfigController:
         self._wait_all_message_consumed(
             f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
             f'qos{threshold_config_controller_mqtt.qos}')
-        t_min, t_max, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
         assert t_min == 200
         assert t_max == 220
+
+    def test_modify_config_dynamic_with_mqtt(self, threshold_config_controller_mqtt: ThresholdConfigController,
+                                             mqtt_config: Client):
+        threshold_config_controller_mqtt.dynamic_enabled = False
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        assert t_min == 150
+        assert t_max == 200
+        assert t_dynamic_enabled == False
+        assert t_default == 160
+        assert t_delta == 20
+
+        self._wait_all_message_consumed(f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
+                                        f'qos{threshold_config_controller_mqtt.qos}')
+
+        msg = mqtt_config.publish(topic='test/car/config/threshold/default', payload="200", qos=1)
+        msg.wait_for_publish()
+        msg = mqtt_config.publish(topic='test/car/config/threshold/delta', payload="5", qos=1)
+        msg.wait_for_publish()
+        msg = mqtt_config.publish(topic='test/car/config/threshold/dynamic_enabled', payload="true", qos=1)
+        msg.wait_for_publish()
+
+        self._wait_all_message_consumed(
+            f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
+            f'qos{threshold_config_controller_mqtt.qos}')
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        assert t_min == 95
+        assert t_max == 105
+        assert t_dynamic_enabled == True
+        assert t_default == 100
+        assert t_delta == 5
