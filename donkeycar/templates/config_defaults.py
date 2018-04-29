@@ -97,4 +97,3 @@ MQTT_PUBLISH_ALL_EVENTS = True
 MQTT_HOSTNAME = 'localhost'
 MQTT_PORT = 1883
 MQTT_QOS = 0
-MQTT_CONFIG_TOPICS = 'config/threshold/#'

@@ -1,9 +1,12 @@
 import logging
+from typing import List, Tuple
 
 import cv2
 from imutils import contours
 from paho.mqtt import client as mqtt
 from paho.mqtt.client import Client, MQTTMessage
+
+Centroids = List[Tuple[int, int]]
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ class AngleProcessorMiddleLine:
         self._last_value = 0
         self._use_only_first = use_only_first
 
-    def estimate(self, centroids):
+    def run(self, centroids: Centroids) -> float:
         logger.debug("Angle estimation for centroids: %s", centroids)
 
         if not centroids:
@@ -62,7 +65,10 @@ class AngleProcessorMiddleLine:
             self._last_value = 1
         return angle
 
-    def _compute_angle_for_centroid(self, line):
+    def shutdown(self):
+        pass
+
+    def _compute_angle_for_centroid(self, line: float) -> float:
         # Position in percent from the left of the middle line
         pos_in_percent = line * 100 / self._resolution[1]
         logger.debug("Line position from left = %s%% (cx=%s, resolution=%s)", pos_in_percent, line, self._resolution[1])
@@ -110,67 +116,6 @@ class ConvertToGrayPart:
         pass
 
 
-class ThrottleControllerFixedSpeed:
-
-    def __init__(self, throttle_value=0.1, stop_on_shock=False):
-        self._throttle = throttle_value
-        self._shock = False
-        self._stop_on_shock = stop_on_shock
-
-    def shutdown(self):
-        pass
-
-    def run(self, centroids, shock):
-        if not self._stop_on_shock:
-            return self._throttle
-
-        if shock:
-            logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
-            self._shock = shock
-
-        if self._shock:
-            return 0.0
-        else:
-            return self._throttle
-
-
-class ThrottleControllerSteeringBased:
-    """
-    Implementation of throttle controller using steering value
-    """
-
-    def __init__(self, min_speed=0.1, max_speed=1.0, safe_angle=0.2, dangerous_angle=0.8, stop_on_shock=False):
-        self._min_speed = min_speed
-        self._max_speed = max_speed
-        self._dangerous_angle = dangerous_angle
-        self._safe_angle = safe_angle
-        self._shock = False
-        self._stop_on_shock = stop_on_shock
-
-    def shutdown(self):
-        pass
-
-    def run(self, angle, shock):
-        if self._stop_on_shock:
-            if shock:
-                logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
-                self._shock = shock
-
-            if self._shock:
-                return 0.0
-
-        # Angle between 0 - safe direction ==> max_speed
-        if angle < self._safe_angle:
-            return self._max_speed
-        # Angle > danger => min speed
-        if angle > self._dangerous_angle:
-            return self._min_speed
-
-        # other ==> proportional to (max_speed - min_speed )
-        speed_interv = self._max_speed - self._min_speed
-        return round((angle * speed_interv) + self._min_speed, 2)
-
-
 def _on_connect(client: Client, userdata, flags, rc: int):
     logger.info("Connected with result code %s", rc)
     # Subscribing in on_connect() means that if we lose the connection and
@@ -179,7 +124,31 @@ def _on_connect(client: Client, userdata, flags, rc: int):
     logger.info("Subscribe to %s topic", userdata.topic)
 
 
-def _on_message(client: Client, userdata, msg: MQTTMessage):
+class ConfigController:
+    def _init_mqtt(self, mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                   mqtt_username, on_message):
+        if mqtt_enable:
+            logger.info("Init mqtt connection to %s topic", mqtt_topic)
+            self.topic = mqtt_topic
+            self.qos = mqtt_qos
+            self._mqtt_client = mqtt.Client(client_id=mqtt_client_id, clean_session=False, userdata=self,
+                                            protocol=mqtt.MQTTv311)
+
+            if mqtt_username:
+                self._mqtt_client.username_pw_set(username=mqtt_username, password=mqtt_password)
+            self._mqtt_client.on_connect = _on_connect
+            self._mqtt_client.on_message = on_message
+            self._mqtt_client.connect(mqtt_hostname, mqtt_port, 60)
+            self._mqtt_client.loop_start()
+            self._mqtt_client.subscribe(self.topic, self.qos)
+
+    def shutdown(self):
+        if self._mqtt_client:
+            self._mqtt_client.loop_stop()
+            self._mqtt_client.disconnect()
+
+
+def _on_threshold_config_message(client: Client, userdata, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("threshold/min"):
         new_limit = int(msg.payload)
@@ -206,7 +175,7 @@ def _on_message(client: Client, userdata, msg: MQTTMessage):
         logger.warning("Unexpected msg for topic %s", msg.topic)
 
 
-class ThresholdConfigController:
+class ThresholdConfigController(ConfigController):
 
     def __init__(self, limit_min: int, limit_max: int, threshold_dynamic: bool, threshold_default: int,
                  threshold_delta: int,
@@ -220,21 +189,8 @@ class ThresholdConfigController:
         self.dynamic_default = threshold_default
         self.dynamic_delta = threshold_delta
         self._mqtt_client_id = mqtt_client_id
-
-        if mqtt_enable:
-            logger.info("Init mqtt connection to %s topic", mqtt_topic)
-            self.topic = mqtt_topic
-            self.qos = mqtt_qos
-            self._mqtt_client = mqtt.Client(client_id=mqtt_client_id, clean_session=False, userdata=self,
-                                            protocol=mqtt.MQTTv311)
-
-            if mqtt_username:
-                self._mqtt_client.username_pw_set(username=mqtt_username, password=mqtt_password)
-            self._mqtt_client.on_connect = _on_connect
-            self._mqtt_client.on_message = _on_message
-            self._mqtt_client.connect(mqtt_hostname, mqtt_port, 60)
-            self._mqtt_client.loop_start()
-            self._mqtt_client.subscribe(self.topic, self.qos)
+        self._init_mqtt(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                        mqtt_username, on_message=_on_threshold_config_message)
 
     def run(self, threshold_from_line: int) -> (int, int, bool, int, int):
         """
@@ -251,11 +207,6 @@ class ThresholdConfigController:
             self.limit_max = self.dynamic_default + self.dynamic_delta
         return self.limit_min, self.limit_max, \
                self.dynamic_enabled, self.dynamic_default, self.dynamic_delta
-
-    def shutdown(self):
-        if self._mqtt_client:
-            self._mqtt_client.loop_stop()
-            self._mqtt_client.disconnect()
 
 
 class ThresholdController:
@@ -351,7 +302,7 @@ class ContoursDetector:
         self._arc_length_min = arc_length_min
         self._arc_length_max = arc_length_max
 
-    def process_image(self, img_binarized):
+    def process_image(self, img_binarized) -> (List[List[Tuple[int, int]]], Centroids):
         (_, cntrs, _) = self._search_geometry(img_binarized)
 
         # Order from bottom to
@@ -375,7 +326,7 @@ class ContoursDetector:
         return shapes, centroids
 
     @staticmethod
-    def _compute_centroid(contour):
+    def _compute_centroid(contour) -> (int, int):
         moment = cv2.moments(contour)
         mzero = moment['m00']
         if mzero == 0.0:
@@ -425,22 +376,3 @@ class ContourController:
 
         logger.debug("Centroids founds: %s", centroids)
         return img, centroids
-
-
-class ImagePilot:
-    def __init__(self, angle_estimator=AngleProcessorMiddleLine(),
-                 throttle_controller=ThrottleControllerFixedSpeed()):
-        self._angle_estimator = angle_estimator
-        self._throttle_controller = throttle_controller
-
-    def shutdown(self):
-        pass
-
-    def run(self, centroids, shock):
-        try:
-            angle = self._angle_estimator.estimate(centroids=centroids)
-            throttle = self._throttle_controller.run(angle, shock)
-            return angle, throttle
-        except Exception:
-            logging.exception("Unexpected error")
-            return 0.0, 0.0

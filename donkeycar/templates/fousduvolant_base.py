@@ -4,10 +4,12 @@ import platform
 from donkeycar import Vehicle
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
-    ContourController, AngleProcessorMiddleLine, ImagePilot, ContoursDetector, \
-    ThresholdValueEstimator, ThresholdController, ThrottleControllerSteeringBased, \
-    ThrottleControllerFixedSpeed, ThresholdConfigController
+    ContourController, AngleProcessorMiddleLine, ContoursDetector, \
+    ThresholdValueEstimator, ThresholdController, \
+    ThresholdConfigController
 from donkeycar.parts.mqtt import MqttPart
+from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, ThrottleController, \
+    ThrottleConfigController
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
 
@@ -67,31 +69,13 @@ class BaseVehicle(Vehicle):
                  outputs=['user/angle', 'user/throttle', 'user/mode', 'recording'],
                  threaded=True)
 
-        # See if we should even run the pilot module.
-        # This is only needed because the part run_condition only accepts boolean
-        def pilot_condition(mode):
-            if mode == 'user':
-                return False
-            else:
-                return True
-
-        pilot_condition_part = Lambda(pilot_condition)
-        self.add(pilot_condition_part, inputs=['user/mode'], outputs=['run_pilot'])
-
-        # Run the pilot if the mode is not user.
         angle_processor = AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
                                                    out_zone_in_percent=cfg.OUT_ZONE_PERCENT,
                                                    central_zone_in_percent=cfg.CENTRAL_ZONE_PERCENT,
                                                    use_only_first=cfg.USE_ONLY_NEAR_CONTOUR)
+        self.add(angle_processor, inputs=['centroids'], outputs=['pilot/angle'])
 
-        throttle_controller = self._configure_throttle_controller(cfg)
-
-        camera_pilot = ImagePilot(angle_estimator=angle_processor,
-                                  throttle_controller=throttle_controller)
-        self.add(camera_pilot,
-                 inputs=['centroids', 'shock'],
-                 outputs=['pilot/angle', 'pilot/throttle'],
-                 run_condition='run_pilot')
+        self._configure_throttle_controller(cfg)
 
         # Choose what inputs should change the car.
         def drive_mode(mode,
@@ -140,6 +124,13 @@ class BaseVehicle(Vehicle):
             'cfg/threshold/limit/min': 'int',
             'cfg/threshold/limit/max': 'int',
 
+            'cfg/throttle/compute_from_steering': 'boolean',
+            'cfg/throttle/min': 'int',
+            'cfg/throttle/max': 'int',
+            'cfg/throttle/angle/safe': 'float',
+            'cfg/throttle/angle/dangerous': 'float',
+            'cfg/throttle/stop_on_shock': 'boolean',
+
             'centroids': 'list',
             'shock': 'boolean',
             'user/mode': 'str'
@@ -147,7 +138,9 @@ class BaseVehicle(Vehicle):
         inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'user/angle', 'user/throttle',
                   'pilot/angle', 'pilot/throttle', 'cfg/threshold/from_line', 'cfg/threshold/dynamic/enabled',
                   'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min',
-                  'cfg/threshold/limit/max', 'centroids', 'shock', 'user/mode']
+                  'cfg/threshold/limit/max', 'cfg/throttle/compute_from_steering', 'cfg/throttle/min',
+                  'cfg/throttle/max', 'cfg/throttle/angle/safe', 'cfg/throttle/angle/dangerous',
+                  'cfg/throttle/stop_on_shock', 'centroids', 'shock', 'user/mode']
         self.add(
             MqttPart(
                 inputs=inputs,
@@ -165,18 +158,35 @@ class BaseVehicle(Vehicle):
             inputs=inputs
         )
 
-    @staticmethod
-    def _configure_throttle_controller(cfg):
-        if cfg.THROTTLE_STEERING_ENABLE:
-            throttle_controller = ThrottleControllerSteeringBased(min_speed=cfg.THROTTLE_MIN_SPEED,
-                                                                  max_speed=cfg.THROTTLE_MAX_SPEED,
-                                                                  safe_angle=cfg.THROTTLE_SAFE_ANGLE,
-                                                                  dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE,
-                                                                  stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK)
-        else:
-            throttle_controller = ThrottleControllerFixedSpeed(throttle_value=cfg.THROTTLE_MAX_SPEED,
-                                                               stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK)
-        return throttle_controller
+    def _configure_throttle_controller(self, cfg):
+
+        config_controller = ThrottleConfigController(stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK,
+                                                     min_speed=cfg.THROTTLE_MIN_SPEED,
+                                                     max_speed=cfg.THROTTLE_MAX_SPEED,
+                                                     safe_angle=cfg.THROTTLE_SAFE_ANGLE,
+                                                     dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE,
+                                                     use_steering=cfg.THROTTLE_STEERING_ENABLE
+                                                     )
+        self.add(config_controller, outputs=['cfg/throttle/compute_from_steering',
+                                             'cfg/throttle/min',
+                                             'cfg/throttle/max',
+                                             'cfg/throttle/angle/safe',
+                                             'cfg/throttle/angle/dangerous',
+                                             'cfg/throttle/stop_on_shock'])
+
+        throttle_controller = ThrottleController(fix_controller=ThrottleControllerFixedSpeed(),
+                                                 steering_controller=ThrottleControllerSteeringBased())
+        self.add(throttle_controller,
+                 inputs=['pilot/angle',
+                         'cfg/throttle/compute_from_steering',
+                         'cfg/throttle/min',
+                         'cfg/throttle/max',
+                         'cfg/throttle/angle/safe',
+                         'cfg/throttle/angle/dangerous',
+                         'cfg/throttle/stop_on_shock',
+                         'shock'],
+                 outputs=['pilot/throttle']
+                 )
 
     def _configure_arduino(self, cfg):
         arduino = SerialPart(port=cfg.ARDUINO_SERIAL_PORT, baudrate=cfg.ARDUINO_SERIAL_BAUDRATE)
@@ -197,12 +207,10 @@ class BaseVehicle(Vehicle):
         dynamic_enabled = cfg.THRESHOLD_DYNAMIC_ENABLE
         dynamic_default_threshold = cfg.THRESHOLD_DYNAMIC_INIT
         dynamic_delta = cfg.THRESHOLD_DYNAMIC_DELTA
-        mqtt_config_topics = cfg.MQTT_CONFIG_TOPICS
         threshold_config = ThresholdConfigController(limit_min=limit_min, limit_max=limit_max,
                                                      threshold_dynamic=dynamic_enabled,
                                                      threshold_default=dynamic_default_threshold,
-                                                     threshold_delta=dynamic_delta,
-                                                     mqtt_topic=mqtt_config_topics)
+                                                     threshold_delta=dynamic_delta)
         self.add(threshold_config,
                  inputs=['cfg/threshold/from_line'],
                  outputs=['cfg/threshold/limit/min', 'cfg/threshold/limit/max',
