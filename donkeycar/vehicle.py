@@ -5,10 +5,13 @@ Created on Sun Jun 25 10:44:24 2017
 
 @author: wroscoe
 """
-
+import logging
 import time
 from threading import Thread
+
 from .memory import Memory
+
+logger = logging.getLogger(__name__)
 
 
 class Vehicle():
@@ -21,8 +24,7 @@ class Vehicle():
         self.on = True
         self.threads = []
 
-
-    def add(self, part, inputs=[], outputs=[], 
+    def add(self, part, inputs=[], outputs=[],
             threaded=False, run_condition=None):
         """
         Method to add a part to the vehicle drive loop.
@@ -38,8 +40,8 @@ class Vehicle():
         """
 
         p = part
-        print('Adding part {}.'.format(p.__class__.__name__))
-        entry={}
+        logger.info('Adding part %s.', p.__class__.__name__)
+        entry = {}
         entry['part'] = p
         entry['inputs'] = inputs
         entry['outputs'] = outputs
@@ -51,7 +53,6 @@ class Vehicle():
             entry['thread'] = t
 
         self.parts.append(entry)
-
 
     def start(self, rate_hz=10, max_loop_count=None):
         """
@@ -78,11 +79,11 @@ class Vehicle():
 
             for entry in self.parts:
                 if entry.get('thread'):
-                    #start the update thread
+                    # start the update thread
                     entry.get('thread').start()
 
-            #wait until the parts warm up.
-            print('Starting vehicle...')
+            # wait until the parts warm up.
+            logger.info('Starting vehicle...')
             time.sleep(1)
 
             loop_count = 0
@@ -92,7 +93,7 @@ class Vehicle():
 
                 self.update_parts()
 
-                #stop drive loop if loop_count exceeds max_loopcount
+                # stop drive loop if loop_count exceeds max_loopcount
                 if max_loop_count and loop_count > max_loop_count:
                     self.on = False
 
@@ -105,41 +106,38 @@ class Vehicle():
         finally:
             self.stop()
 
-
     def update_parts(self):
         '''
         loop over all parts
         '''
         for entry in self.parts:
-            #don't run if there is a run condition that is False
+            # don't run if there is a run condition that is False
             run = True
             if entry.get('run_condition'):
                 run_condition = entry.get('run_condition')
                 run = self.mem.get([run_condition])[0]
-                #print('run_condition', entry['part'], entry.get('run_condition'), run)
-            
+                # print('run_condition', entry['part'], entry.get('run_condition'), run)
+
             if run:
                 p = entry['part']
-                #get inputs from memory
+                # get inputs from memory
                 inputs = self.mem.get(entry['inputs'])
 
-                #run the part
+                # run the part
                 if entry.get('thread'):
                     outputs = p.run_threaded(*inputs)
                 else:
                     outputs = p.run(*inputs)
 
-                #save the output to memory
+                # save the output to memory
                 if outputs is not None:
                     self.mem.put(entry['outputs'], outputs)
 
-                    
-
     def stop(self):
-        print('Shutting down vehicle and its parts...')
+        logger.info('Shutting down vehicle and its parts...')
         for entry in self.parts:
             try:
                 entry['part'].shutdown()
             except Exception as e:
-                print(e)
-        print(self.mem.d)
+                logging.exception(e)
+        logger.debug(self.mem.d)
