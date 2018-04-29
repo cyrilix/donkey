@@ -95,14 +95,12 @@ class RemoteWebServer():
 
 class LocalWebController(tornado.web.Application):
 
-    def __init__(self, custom_handlers=None):
+    def __init__(self):
         '''
         Create and publish variables needed on many of
         the web handlers.
         '''
 
-        if custom_handlers is None:
-            custom_handlers = []
         logger.info('Starting Donkey Server...')
 
         this_dir = os.path.dirname(os.path.realpath(__file__))
@@ -119,8 +117,6 @@ class LocalWebController(tornado.web.Application):
             (r"/video", VideoAPI),
             (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": self.static_file_path}),
         ]
-        for custom_handler in custom_handlers:
-            handlers.append(custom_handler)
 
         settings = {'debug': True}
 

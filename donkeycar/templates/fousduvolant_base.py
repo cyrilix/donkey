@@ -58,13 +58,7 @@ class BaseVehicle(Vehicle):
 
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
-        custom_handlers = [
-            ("/video1", VideoAPI2, {"video_part": threshold_controller}),
-            ("/video2", VideoAPI2, {"video_part": contours_controller}),
-            ("/video3", VideoAPI2, {"video_part": threshold_value_estimator}),
-        ]
-        ctr = LocalWebController(custom_handlers=custom_handlers)
-        self.add(ctr,
+        self.add(LocalWebController(),
                  inputs=['cam/image_array'],
                  outputs=['user/angle', 'user/throttle', 'user/mode', 'recording'],
                  threaded=True)
