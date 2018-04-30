@@ -7,11 +7,11 @@ from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
     ContourController, AngleProcessorMiddleLine, ContoursDetector, \
     ThresholdValueEstimator, ThresholdController, \
     ThresholdConfigController
-from donkeycar.parts.mqtt import MqttPart
+from donkeycar.parts.mqtt import MqttPart, MqttDrive
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, ThrottleController, \
     ThrottleConfigController
 from donkeycar.parts.transform import Lambda
-from donkeycar.parts.web_controller.web import VideoAPI2, LocalWebController
+from donkeycar.parts.web_controller.web import LocalWebController
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class BaseVehicle(Vehicle):
                                                             contours_detector=contours_detector)
         self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['cfg/threshold/from_line'])
 
-        threshold_controller = self._configure_threshold(cfg)
+        self._configure_threshold(cfg)
 
         contours_controller = ContourController(debug=cfg.DEBUG_PILOT, contours_detector=contours_detector)
         self.add(contours_controller,
@@ -62,6 +62,7 @@ class BaseVehicle(Vehicle):
                  inputs=['cam/image_array'],
                  outputs=['user/angle', 'user/throttle', 'user/mode', 'recording'],
                  threaded=True)
+        self.add(MqttDrive(), outputs=['user/mode'])
 
         angle_processor = AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
                                                    out_zone_in_percent=cfg.OUT_ZONE_PERCENT,
@@ -215,5 +216,3 @@ class BaseVehicle(Vehicle):
         self.add(threshold_controller,
                  inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
                  outputs=['img/processed'])
-
-        return threshold_controller

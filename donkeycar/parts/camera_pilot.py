@@ -3,8 +3,9 @@ from typing import List, Tuple
 
 import cv2
 from imutils import contours
-from paho.mqtt import client as mqtt
 from paho.mqtt.client import Client, MQTTMessage
+
+from donkeycar.parts.mqtt import MqttController
 
 Centroids = List[Tuple[int, int]]
 
@@ -116,38 +117,6 @@ class ConvertToGrayPart:
         pass
 
 
-def _on_connect(client: Client, userdata, flags, rc: int):
-    logger.info("Connected with result code %s", rc)
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    client.subscribe(userdata.topic, userdata.qos)
-    logger.info("Subscribe to %s topic", userdata.topic)
-
-
-class ConfigController:
-    def _init_mqtt(self, mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                   mqtt_username, on_message):
-        if mqtt_enable:
-            logger.info("Init mqtt connection to %s topic", mqtt_topic)
-            self.topic = mqtt_topic
-            self.qos = mqtt_qos
-            self._mqtt_client = mqtt.Client(client_id=mqtt_client_id, clean_session=False, userdata=self,
-                                            protocol=mqtt.MQTTv311)
-
-            if mqtt_username:
-                self._mqtt_client.username_pw_set(username=mqtt_username, password=mqtt_password)
-            self._mqtt_client.on_connect = _on_connect
-            self._mqtt_client.on_message = on_message
-            self._mqtt_client.connect(mqtt_hostname, mqtt_port, 60)
-            self._mqtt_client.loop_start()
-            self._mqtt_client.subscribe(self.topic, self.qos)
-
-    def shutdown(self):
-        if self._mqtt_client:
-            self._mqtt_client.loop_stop()
-            self._mqtt_client.disconnect()
-
-
 def _on_threshold_config_message(client: Client, userdata, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("threshold/min"):
@@ -175,20 +144,19 @@ def _on_threshold_config_message(client: Client, userdata, msg: MQTTMessage):
         logger.warning("Unexpected msg for topic %s", msg.topic)
 
 
-class ThresholdConfigController(ConfigController):
+class ThresholdConfigController(MqttController):
 
     def __init__(self, limit_min: int, limit_max: int, threshold_dynamic: bool, threshold_default: int,
                  threshold_delta: int,
                  mqtt_enable: bool = True, mqtt_topic: str = 'config/threshold/#', mqtt_hostname: str = 'localhost',
                  mqtt_port: int = 1883,
-                 mqtt_client_id: str = "donkey-config-",
+                 mqtt_client_id: str = "donkey-config-threshold-",
                  mqtt_username: str = None, mqtt_password: str = None, mqtt_qos: int = 0):
         self.limit_min = limit_min
         self.limit_max = limit_max
         self.dynamic_enabled = threshold_dynamic
         self.dynamic_default = threshold_default
         self.dynamic_delta = threshold_delta
-        self._mqtt_client_id = mqtt_client_id
         self._init_mqtt(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
                         mqtt_username, on_message=_on_threshold_config_message)
 

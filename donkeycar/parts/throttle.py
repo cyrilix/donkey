@@ -3,7 +3,7 @@ from typing import List
 
 from paho.mqtt.client import Client, MQTTMessage
 
-from donkeycar.parts.camera_pilot import ConfigController
+from donkeycar.parts.mqtt import MqttController
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def _on_throttle_config_message(client: Client, userdata, msg: MQTTMessage):
         logger.warning("Unexpected msg for topic %s", msg.topic)
 
 
-class ThrottleConfigController(ConfigController):
+class ThrottleConfigController(MqttController):
 
     def __init__(self,
                  min_speed: float, max_speed: float, safe_angle: float, dangerous_angle: float, use_steering: bool,
@@ -56,7 +56,6 @@ class ThrottleConfigController(ConfigController):
         self.dangerous_angle = dangerous_angle
         self.use_steering = use_steering
         self.stop_on_shock = stop_on_shock
-        self._mqtt_client_id = mqtt_client_id
         self._init_mqtt(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
                         mqtt_username, on_message=_on_throttle_config_message)
 
