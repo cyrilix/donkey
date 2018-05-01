@@ -2,6 +2,7 @@ import logging
 from time import sleep
 from typing import Dict, List
 
+import cv2
 import pytest
 import requests
 from paho.mqtt import client as mqtt
@@ -44,3 +45,12 @@ def fixture_mqtt_config(docker_network_info: Dict[str, List[NetworkInfo]]):
     yield mqtt_client
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
+
+
+def _load_img(img):
+    path = "donkeycar/tests/data/" + img
+    return cv2.imread(path)
+
+
+def _load_img_gray(img):
+    return cv2.cvtColor(_load_img(img), cv2.COLOR_RGB2GRAY)

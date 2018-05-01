@@ -1,67 +1,12 @@
-import logging
-import typing
+from typing import Dict, List
 
-import cv2
 import numpy as np
 import pytest
 from paho.mqtt.client import Client
 from pytest_docker_compose import NetworkInfo
 
-from donkeycar.parts.camera_pilot import AngleProcessorMiddleLine, \
-    ThresholdValueEstimator, ThresholdController, \
-    ThresholdConfigController
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed
-
-logger = logging.getLogger(__name__)
-
-
-def _load_img(img):
-    path = "donkeycar/tests/data/" + img
-    return cv2.imread(path)
-
-
-def _load_img_gray(img):
-    return cv2.cvtColor(_load_img(img), cv2.COLOR_RGB2GRAY)
-
-
-@pytest.fixture()
-def angle_processor():
-    return AngleProcessorMiddleLine(image_resolution=(120, 160))
-
-
-class TestAngleEstimatorMiddleLine:
-
-    def test_no_line(self, angle_processor: AngleProcessorMiddleLine):
-        centroids = []
-        assert angle_processor.run(centroids) == 0.0
-
-    def test_middle_line_on_border_left(self, angle_processor: AngleProcessorMiddleLine):
-        centroids = [(2, 12)]
-        assert angle_processor.run(centroids) == -1.0
-
-    def test_middle_line_on_left(self, angle_processor: AngleProcessorMiddleLine):
-        centroids = [(33, 0)]
-        angle = angle_processor.run(centroids)
-        assert -0.9 < angle < -0.2
-
-    def test_middle_line_on_middle(self, angle_processor: AngleProcessorMiddleLine):
-        centroids = [(75, 0)]
-        angle = angle_processor.run(centroids)
-        assert angle == 0.0
-
-        centroids = [(85, 0)]
-        angle = angle_processor.run(centroids)
-        assert angle == 0.0
-
-    def test_middle_line_on_right(self, angle_processor: AngleProcessorMiddleLine):
-        centroids = [(120, 0)]
-        angle = angle_processor.run(centroids)
-        assert 0.2 < angle < 0.9
-
-    def test_middle_line_on_border_right(self, angle_processor: AngleProcessorMiddleLine):
-        centroids = [(155, 0)]
-        angle = angle_processor.run(centroids)
-        assert angle == 1.0
+from donkeycar.parts.threshold import ThresholdController, ThresholdValueEstimator, ThresholdConfigController
+from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, _load_img_gray
 
 
 @pytest.fixture
@@ -98,15 +43,12 @@ class TestThresholdValueEstimator:
         img = _load_img_gray('straight_line_1.jpg')
         value_estimator = ThresholdValueEstimator(init_value=200)
 
-        assert not value_estimator.video_frame()
         assert value_estimator.run(img_gray=img) == 217
 
 
-0
-
-
 @pytest.fixture(name='threshold_config_controller_mqtt')
-def fixture_threshold_config_controller_mqtt(docker_network_info: typing.Dict[str, typing.List[NetworkInfo]]):
+def fixture_threshold_config_controller_mqtt(docker_network_info: Dict[str, List[NetworkInfo]]) \
+        -> ThresholdConfigController:
     mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
     host = 'localhost'
     port = 1883
@@ -121,7 +63,7 @@ def fixture_threshold_config_controller_mqtt(docker_network_info: typing.Dict[st
 
 
 @pytest.fixture(name='threshold_config_controller_static')
-def fixture_threshold_config_controller_static():
+def fixture_threshold_config_controller_static() -> ThresholdConfigController:
     return ThresholdConfigController(limit_min=150, limit_max=200,
                                      threshold_dynamic=False, threshold_default=160, threshold_delta=20,
                                      mqtt_enable=False)

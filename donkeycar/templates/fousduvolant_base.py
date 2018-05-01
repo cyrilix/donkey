@@ -2,12 +2,11 @@ import logging
 import platform
 
 from donkeycar import Vehicle
+from donkeycar.parts.angle import AngleProcessorMiddleLine
 from donkeycar.parts.arduino import SerialPart
-from donkeycar.parts.camera_pilot import ConvertToGrayPart, \
-    ContourController, AngleProcessorMiddleLine, ContoursDetector, \
-    ThresholdValueEstimator, ThresholdController, \
-    ThresholdConfigController
 from donkeycar.parts.mqtt import MqttPart, MqttDrive
+from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
+    ConvertToGrayPart, ContoursDetector, ContourController
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, ThrottleController, \
     ThrottleConfigController
 from donkeycar.parts.transform import Lambda
@@ -51,7 +50,7 @@ class BaseVehicle(Vehicle):
 
         self._configure_threshold(cfg)
 
-        contours_controller = ContourController(debug=cfg.DEBUG_PILOT, contours_detector=contours_detector)
+        contours_controller = ContourController(contours_detector=contours_detector)
         self.add(contours_controller,
                  inputs=['img/processed'],
                  outputs=['img/contours', 'centroids'])
@@ -212,7 +211,7 @@ class BaseVehicle(Vehicle):
                           'cfg/threshold/dynamic/enabled',
                           'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta'])
 
-        threshold_controller = ThresholdController(debug=cfg.DEBUG_PILOT)
+        threshold_controller = ThresholdController()
         self.add(threshold_controller,
                  inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
                  outputs=['img/processed'])
