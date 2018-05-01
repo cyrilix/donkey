@@ -101,16 +101,17 @@ class ThresholdController:
     Apply threshold process to gray images
     """
 
-    def __init__(self):
+    def __init__(self, config: ThresholdConfigController):
+        self._config = config
         self._crop_from_top = 20
         self._video_frame = None
 
     def shutdown(self):
         pass
 
-    def run(self, image_gray: ndarray, threshold_limit_min: int, threshold_limit_max: int) -> ndarray:
+    def run(self, image_gray: ndarray) -> ndarray:
         try:
-            img = self._threshold(image_gray, threshold_limit_min, threshold_limit_max)
+            img = self._threshold(image_gray)
             self._video_frame = img
             return img
         except Exception:
@@ -118,10 +119,9 @@ class ThresholdController:
             logging.exception("Unexpected error")
             return self._video_frame
 
-    @staticmethod
-    def _threshold(img: ndarray, threshold_limit_min: int, threshold_limit_max: int) -> ndarray:
-        (_, binary_min) = cv2.threshold(img.copy(), threshold_limit_min, 255, 0, cv2.THRESH_BINARY)
-        (_, binary_max) = cv2.threshold(img.copy(), threshold_limit_max, 255, 0, cv2.THRESH_BINARY_INV)
+    def _threshold(self, img: ndarray) -> ndarray:
+        (_, binary_min) = cv2.threshold(img.copy(), self._config.limit_min, 255, 0, cv2.THRESH_BINARY)
+        (_, binary_max) = cv2.threshold(img.copy(), self._config.limit_max, 255, 0, cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
 

@@ -9,23 +9,32 @@ from donkeycar.parts.threshold import ThresholdController, ThresholdValueEstimat
 from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, _load_img_gray
 
 
+@pytest.fixture(name='threshold_config_controller_static')
+def fixture_threshold_config_controller_static() -> ThresholdConfigController:
+    return ThresholdConfigController(limit_min=150, limit_max=200,
+                                     threshold_dynamic=False, threshold_default=160, threshold_delta=20,
+                                     mqtt_enable=False)
+
+
 @pytest.fixture
-def threshold_controller():
-    return ThresholdController()
+def threshold_controller(threshold_config_controller_static) -> ThresholdController:
+    return ThresholdController(config=threshold_config_controller_static)
 
 
 class TestThresholdController:
 
     def test_straight_line(self, threshold_controller: ThresholdController):
-        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"),
-                                            threshold_limit_min=180, threshold_limit_max=255)) > 0
+        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
 
     def test_threshold_min_max(self, threshold_controller: ThresholdController):
+        threshold_controller._config.limit_min = 170
+        threshold_controller._config.limit_max = 190
+
         img_gray = np.ones((256, 256))
         for i in range(0, 256):
             img_gray[i] = np.ones(256) * i
 
-        img = threshold_controller.run(img_gray, threshold_limit_min=170, threshold_limit_max=190)
+        img = threshold_controller.run(img_gray)
 
         for i in range(170):
             assert list(img[(i, ...)]) == list(np.zeros((256,)))
@@ -61,13 +70,6 @@ def fixture_threshold_config_controller_mqtt(docker_network_info: Dict[str, List
                                      mqtt_qos=1,
                                      mqtt_client_id='donkey-config-threshold-',
                                      mqtt_topic='test/car/config/threshold/#')
-
-
-@pytest.fixture(name='threshold_config_controller_static')
-def fixture_threshold_config_controller_static() -> ThresholdConfigController:
-    return ThresholdConfigController(limit_min=150, limit_max=200,
-                                     threshold_dynamic=False, threshold_default=160, threshold_delta=20,
-                                     mqtt_enable=False)
 
 
 class TestThresholdConfigController:

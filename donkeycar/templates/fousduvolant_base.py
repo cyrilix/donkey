@@ -220,7 +220,7 @@ class BaseVehicle(Vehicle):
                           'cfg/threshold/dynamic/enabled',
                           'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta'])
 
-        threshold_controller = ThresholdController()
+        threshold_controller = ThresholdController(config=threshold_config)
         self.add(threshold_controller,
-                 inputs=['img/gray', 'cfg/threshold/limit/min', 'cfg/threshold/limit/max'],
+                 inputs=['img/gray'],
                  outputs=['img/processed'])
