@@ -168,14 +168,12 @@ class BaseVehicle(Vehicle):
         )
 
     def _configure_throttle_controller(self, cfg):
-
         config_controller = ThrottleConfigController(stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK,
                                                      min_speed=cfg.THROTTLE_MIN_SPEED,
                                                      max_speed=cfg.THROTTLE_MAX_SPEED,
                                                      safe_angle=cfg.THROTTLE_SAFE_ANGLE,
                                                      dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE,
-                                                     use_steering=cfg.THROTTLE_STEERING_ENABLE
-                                                     )
+                                                     use_steering=cfg.THROTTLE_STEERING_ENABLE)
         self.add(config_controller, outputs=['cfg/throttle/compute_from_steering',
                                              'cfg/throttle/min',
                                              'cfg/throttle/max',
@@ -183,19 +181,15 @@ class BaseVehicle(Vehicle):
                                              'cfg/throttle/angle/dangerous',
                                              'cfg/throttle/stop_on_shock'])
 
-        throttle_controller = ThrottleController(fix_controller=ThrottleControllerFixedSpeed(),
-                                                 steering_controller=ThrottleControllerSteeringBased())
+        throttle_controller = ThrottleController(throttle_config_controller=config_controller,
+                                                 fix_controller=ThrottleControllerFixedSpeed(
+                                                     throttle_config_controller=config_controller),
+                                                 steering_controller=ThrottleControllerSteeringBased(
+                                                     throttle_config_controller=config_controller))
         self.add(throttle_controller,
                  inputs=['pilot/angle',
-                         'cfg/throttle/compute_from_steering',
-                         'cfg/throttle/min',
-                         'cfg/throttle/max',
-                         'cfg/throttle/angle/safe',
-                         'cfg/throttle/angle/dangerous',
-                         'cfg/throttle/stop_on_shock',
                          'shock'],
-                 outputs=['pilot/throttle']
-                 )
+                 outputs=['pilot/throttle'])
 
     def _configure_arduino(self, cfg):
         arduino = SerialPart(port=cfg.ARDUINO_SERIAL_PORT, baudrate=cfg.ARDUINO_SERIAL_BAUDRATE)

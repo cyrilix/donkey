@@ -85,15 +85,16 @@ class ThrottleConfigController(MqttController):
 
 class ThrottleControllerFixedSpeed:
 
-    def __init__(self):
+    def __init__(self, throttle_config_controller: ThrottleConfigController):
+        self._throttle_config_controller = throttle_config_controller
         self._shock = False
 
     def shutdown(self):
         pass
 
-    def run(self, throttle_value: float, stop_on_shock: bool = False, shock: bool = False) -> float:
-        if not stop_on_shock:
-            return throttle_value
+    def run(self, shock: bool = False) -> float:
+        if not self._throttle_config_controller.stop_on_shock:
+            return self._throttle_config_controller.min_speed
 
         if shock:
             logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
@@ -102,7 +103,7 @@ class ThrottleControllerFixedSpeed:
         if self._shock:
             return 0.0
         else:
-            return throttle_value
+            return self._throttle_config_controller.min_speed
 
 
 class ThrottleControllerSteeringBased:
@@ -110,21 +111,25 @@ class ThrottleControllerSteeringBased:
     Implementation of throttle controller using steering value
     """
 
-    def __init__(self):
+    def __init__(self, throttle_config_controller: ThrottleConfigController):
+        self._throttle_config_controller = throttle_config_controller
         self._shock = False
 
     def shutdown(self):
         pass
 
-    def run(self, angle: float, min_speed: float, max_speed: float, safe_angle: float, dangerous_angle: float,
-            stop_on_shock: bool, shock: bool) -> float:
-        if stop_on_shock:
+    def run(self, angle: float, shock: bool) -> float:
+        if self._throttle_config_controller.stop_on_shock:
             if shock:
                 logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
                 self._shock = shock
 
             if self._shock:
                 return 0.0
+        safe_angle = self._throttle_config_controller.safe_angle
+        dangerous_angle = self._throttle_config_controller.dangerous_angle
+        min_speed = self._throttle_config_controller.min_speed
+        max_speed = self._throttle_config_controller.max_speed
 
         # Angle between 0 - safe direction ==> max_speed
         if angle < safe_angle:
@@ -140,22 +145,21 @@ class ThrottleControllerSteeringBased:
 
 class ThrottleController:
 
-    def __init__(self, fix_controller: ThrottleControllerFixedSpeed,
+    def __init__(self, throttle_config_controller: ThrottleConfigController,
+                 fix_controller: ThrottleControllerFixedSpeed,
                  steering_controller: ThrottleControllerSteeringBased):
+        self._throttle_config_controller = throttle_config_controller
         self.fix_controller = fix_controller
         self.steering_controller = steering_controller
 
-    def run(self, angle: float, use_steering: bool, throttle_min: float, throttle_max: float, angle_saf: float,
-            angle_dangerous: float, stop_on_shock: bool = False, shock: bool = False) -> float:
+    def run(self, angle: float, shock: bool = False) -> float:
         try:
-            if use_steering:
-                return self.steering_controller.run(angle=angle, min_speed=throttle_min, max_speed=throttle_max,
-                                                    safe_angle=angle_saf, dangerous_angle=angle_dangerous,
-                                                    stop_on_shock=stop_on_shock, shock=shock)
-            return self.fix_controller.run(throttle_value=throttle_min, stop_on_shock=stop_on_shock, shock=shock)
+            if self._throttle_config_controller.use_steering:
+                return self.steering_controller.run(angle=angle, shock=shock)
+            return self.fix_controller.run(shock=shock)
         except:
             logging.exception('Unexpected error')
-            return throttle_min
+            return self._throttle_config_controller.min_speed
 
     def shutdown(self):
         self.fix_controller.shutdown()
