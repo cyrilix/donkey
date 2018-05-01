@@ -74,6 +74,7 @@ def fixture_throttle_config_controller_mqtt(docker_network_info: Dict[str, List[
                                                mqtt_hostname=host,
                                                mqtt_port=port,
                                                mqtt_qos=1,
+                                               mqtt_client_id='donkey-config-throttle-',
                                                mqtt_topic='test/car/config/throttle/#')
 
     wait_all_mqtt_messages_consumed(f'mqtt-subscription-{throttle_config._mqtt_client_id}'

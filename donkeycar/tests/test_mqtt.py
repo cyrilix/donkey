@@ -52,7 +52,7 @@ def fixture_mqtt_drive(docker_network_info: Dict[str, List[NetworkInfo]]):
                            mqtt_hostname=host,
                            mqtt_port=port,
                            mqtt_qos=1,
-                           mqtt_client_id='donkey-config-drive',
+                           mqtt_client_id='donkey-config-drive-',
                            mqtt_topic='test/car/config/drive/#')
 
     wait_all_mqtt_messages_consumed(f'mqtt-subscription-{mqtt_drive._mqtt_client_id}'
@@ -60,7 +60,7 @@ def fixture_mqtt_drive(docker_network_info: Dict[str, List[NetworkInfo]]):
     return mqtt_drive
 
 
-class TestThrottleConfigController:
+class TestDriveConfigController:
 
     def test_values(self, mqtt_drive: MqttDrive, mqtt_config: Client):
         user_mode = mqtt_drive.run()

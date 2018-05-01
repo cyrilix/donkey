@@ -2,7 +2,7 @@ import logging
 import platform
 
 from donkeycar import Vehicle
-from donkeycar.parts.angle import AngleProcessorMiddleLine
+from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.mqtt import MqttPart, MqttDrive
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
@@ -63,11 +63,7 @@ class BaseVehicle(Vehicle):
                  threaded=True)
         self.add(MqttDrive(), outputs=['user/mode'])
 
-        angle_processor = AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
-                                                   out_zone_in_percent=cfg.OUT_ZONE_PERCENT,
-                                                   central_zone_in_percent=cfg.CENTRAL_ZONE_PERCENT,
-                                                   use_only_first=cfg.USE_ONLY_NEAR_CONTOUR)
-        self.add(angle_processor, inputs=['centroids'], outputs=['pilot/angle'])
+        self._configure_angle_part(cfg)
 
         self._configure_throttle_controller(cfg)
 
@@ -95,6 +91,19 @@ class BaseVehicle(Vehicle):
         self._configure_mqtt_part(cfg)
 
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
+
+    def _configure_angle_part(self, cfg):
+        angle_config_controller = AngleConfigController(use_only_near_contour=cfg.USE_ONLY_NEAR_CONTOUR,
+                                                        out_zone_percent=cfg.OUT_ZONE_PERCENT,
+                                                        central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
+        self.add(angle_config_controller,
+                 outputs=['cfg/angle/use_only_near_contour',
+                          'cfg/angle/out_zone_percent',
+                          'cfg/angle/central_zone_percent'])
+        self.add(AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
+                                          angle_config_controller=angle_config_controller),
+                 inputs=['centroids'],
+                 outputs=['pilot/angle'])
 
     def _configure_mqtt_part(self, cfg):
         if not cfg.MQTT_ENABLE:
@@ -125,6 +134,10 @@ class BaseVehicle(Vehicle):
             'cfg/throttle/angle/dangerous': 'float',
             'cfg/throttle/stop_on_shock': 'boolean',
 
+            'cfg/angle/use_only_near_contour': 'boolean',
+            'cfg/angle/out_zone_percent': 'int',
+            'cfg/angle/central_zone_percent': 'int',
+
             'centroids': 'list',
             'shock': 'boolean',
             'user/mode': 'str'
@@ -134,7 +147,9 @@ class BaseVehicle(Vehicle):
                   'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min',
                   'cfg/threshold/limit/max', 'cfg/throttle/compute_from_steering', 'cfg/throttle/min',
                   'cfg/throttle/max', 'cfg/throttle/angle/safe', 'cfg/throttle/angle/dangerous',
-                  'cfg/throttle/stop_on_shock', 'centroids', 'shock', 'user/mode']
+                  'cfg/throttle/stop_on_shock',
+                  'cfg/angle/use_only_near_contour', 'cfg/angle/out_zone_percent', 'cfg/angle/central_zone_percent',
+                  'centroids', 'shock', 'user/mode']
         self.add(
             MqttPart(
                 inputs=inputs,

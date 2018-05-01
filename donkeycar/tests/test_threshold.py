@@ -59,6 +59,7 @@ def fixture_threshold_config_controller_mqtt(docker_network_info: Dict[str, List
                                      mqtt_hostname=host,
                                      mqtt_port=port,
                                      mqtt_qos=1,
+                                     mqtt_client_id='donkey-config-threshold-',
                                      mqtt_topic='test/car/config/threshold/#')
 
 

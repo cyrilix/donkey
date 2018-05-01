@@ -70,9 +70,9 @@ POLY_DP_MIN = 4
 ARC_LENGTH_MIN = 15
 ARC_LENGTH_MAX = 100000000
 
-#############
+##############
 #  Threshold #
-#############
+##############
 #  Static implementation
 THRESHOLD_LIMIT_MIN = 180
 THRESHOLD_LIMIT_MAX = 230
@@ -84,8 +84,10 @@ THRESHOLD_DYNAMIC_DELTA = 10
 
 # PILOT
 DEBUG_PILOT = True
-USE_ONLY_NEAR_CONTOUR = True
 
+#########
+#  Angle #
+USE_ONLY_NEAR_CONTOUR = True
 OUT_ZONE_PERCENT = 20
 CENTRAL_ZONE_PERCENT = 20
 
