@@ -44,14 +44,20 @@ class TestThrottleControllerSteeringBased:
 
     def test_throttle_with_min_angle(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(angle=0.0, shock=False) == 0.8
+        assert throttle_controller_angle.run(angle=0.01, shock=False) == 0.8
+        assert throttle_controller_angle.run(angle=-0.01, shock=False) == 0.8
 
     def test_throttle_with_max_angle(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(angle=1.0, shock=False) == 0.4
+        assert throttle_controller_angle.run(angle=-1.0, shock=False) == 0.4
 
     def test_throttle_with_intermediate_angle(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(angle=0.5, shock=False) == 0.6
+        assert throttle_controller_angle.run(angle=-0.5, shock=False) == 0.6
         assert throttle_controller_angle.run(angle=0.8, shock=False) == 0.72
+        assert throttle_controller_angle.run(angle=-0.8, shock=False) == 0.72
         assert throttle_controller_angle.run(angle=0.2, shock=False) == 0.48
+        assert throttle_controller_angle.run(angle=-0.2, shock=False) == 0.48
 
     def test_throttle_with_shock(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         throttle_controller_angle._throttle_config_controller.stop_on_shock = True

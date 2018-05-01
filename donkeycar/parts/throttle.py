@@ -132,15 +132,15 @@ class ThrottleControllerSteeringBased:
         max_speed = self._throttle_config_controller.max_speed
 
         # Angle between 0 - safe direction ==> max_speed
-        if angle < safe_angle:
+        if abs(angle) < safe_angle:
             return max_speed
         # Angle > danger => min speed
-        if angle > dangerous_angle:
+        if abs(angle) > dangerous_angle:
             return min_speed
 
         # other ==> proportional to (max_speed - min_speed )
         speed_interv = max_speed - min_speed
-        return round((angle * speed_interv) + min_speed, 2)
+        return round((abs(angle) * speed_interv) + min_speed, 2)
 
 
 class ThrottleController:
