@@ -2,7 +2,7 @@ import logging
 import platform
 
 from donkeycar import Vehicle
-from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController
+from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.mqtt import MqttPart, MqttDrive
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
@@ -93,17 +93,20 @@ class BaseVehicle(Vehicle):
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
 
     def _configure_angle_part(self, cfg):
-        angle_config_controller = AngleConfigController(use_only_near_contour=cfg.USE_ONLY_NEAR_CONTOUR,
-                                                        out_zone_percent=cfg.OUT_ZONE_PERCENT,
-                                                        central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
-        self.add(angle_config_controller,
+        config = AngleConfigController(use_only_near_contour=cfg.USE_ONLY_NEAR_CONTOUR,
+                                       out_zone_percent=cfg.OUT_ZONE_PERCENT,
+                                       central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
+        self.add(config,
                  outputs=['cfg/angle/use_only_near_contour',
                           'cfg/angle/out_zone_percent',
                           'cfg/angle/central_zone_percent'])
         self.add(AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
-                                          angle_config_controller=angle_config_controller),
+                                          angle_config_controller=config),
                  inputs=['centroids'],
                  outputs=['pilot/angle'])
+        self.add(AngleDebug(config=config),
+                 inputs=['cam/image_array'],
+                 outputs=['img/angle_zone'])
 
     def _configure_mqtt_part(self, cfg):
         if not cfg.MQTT_ENABLE:
@@ -115,6 +118,7 @@ class BaseVehicle(Vehicle):
             'img/gray': 'image_array',
             'img/processed': 'image_array',
             'img/contours': 'image_array',
+            'img/angle_zone': 'image_array',
             'user/angle': 'float',
             'user/throttle': 'float',
             'pilot/angle': 'float',
@@ -142,8 +146,9 @@ class BaseVehicle(Vehicle):
             'shock': 'boolean',
             'user/mode': 'str'
         }
-        inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'user/angle', 'user/throttle',
-                  'pilot/angle', 'pilot/throttle', 'cfg/threshold/from_line', 'cfg/threshold/dynamic/enabled',
+        inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'img/angle_zone', 'user/angle',
+                  'user/throttle', 'pilot/angle', 'pilot/throttle',
+                  'cfg/threshold/from_line', 'cfg/threshold/dynamic/enabled',
                   'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min',
                   'cfg/threshold/limit/max', 'cfg/throttle/compute_from_steering', 'cfg/throttle/min',
                   'cfg/throttle/max', 'cfg/throttle/angle/safe', 'cfg/throttle/angle/dangerous',

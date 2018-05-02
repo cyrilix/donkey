@@ -1,6 +1,9 @@
 import logging
 from typing import List, Tuple
 
+import cv2
+import numpy as np
+from numpy.core.multiarray import ndarray
 from paho.mqtt.client import Client, MQTTMessage
 
 from donkeycar.parts.mqtt import MqttController
@@ -138,3 +141,56 @@ class AngleProcessorMiddleLine:
             angle = 1.0
         logger.debug("Angle fixed: %s", str(angle))
         return angle
+
+
+class AngleDebug:
+
+    def __init__(self, config: AngleConfigController):
+        self._config = config
+
+    def shutdown(self):
+        pass
+
+    def run(self, img: ndarray) -> ndarray:
+        try:
+            rows, columns, channel = np.shape(img)
+            middle = int(columns / 2)
+            mask = np.zeros(img.shape, np.uint8)
+            central_zone_delta = int(self._config.central_zone_percent * 100 / columns)
+
+            # Draw safe zone
+            cv2.rectangle(img=mask,
+                          pt1=(middle - central_zone_delta, 0),
+                          pt2=(middle + central_zone_delta, rows),
+                          color=(0, 255, 0),
+                          thickness=cv2.FILLED)
+
+            out_zone_delta = int(self._config.out_zone_percent * 100 / columns)
+
+            # Draw dangerous zone
+            cv2.rectangle(img=mask,
+                          pt1=(0, 0),
+                          pt2=(out_zone_delta, rows),
+                          color=(255, 0, 0),
+                          thickness=cv2.FILLED)
+            cv2.rectangle(img=mask,
+                          pt1=(columns - out_zone_delta, 0),
+                          pt2=(columns, rows),
+                          color=(255, 0, 0),
+                          thickness=cv2.FILLED)
+
+            # Apply mask
+            img_debug = cv2.addWeighted(src1=img.copy(), alpha=0.7,
+                                        src2=mask, beta=0.3,
+                                        gamma=0)
+
+            # Draw central axes
+            img_debug = cv2.line(img=img_debug,
+                                 pt1=(middle, 0),
+                                 pt2=(middle, img.shape[1]),
+                                 color=(0, 0, 255),
+                                 thickness=2)
+            return img_debug
+        except:
+            logging.exception("Unexpected error")
+            return np.zeros(img.shape)
