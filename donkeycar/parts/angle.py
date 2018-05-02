@@ -156,7 +156,7 @@ class AngleDebug:
             rows, columns, channel = np.shape(img)
             middle = int(columns / 2)
             mask = np.zeros(img.shape, np.uint8)
-            central_zone_delta = int(self._config.central_zone_percent * 100 / columns)
+            central_zone_delta = int(((columns / 100) * self._config.central_zone_percent) / 2)
 
             # Draw safe zone
             cv2.rectangle(img=mask,
@@ -165,7 +165,7 @@ class AngleDebug:
                           color=(0, 255, 0),
                           thickness=cv2.FILLED)
 
-            out_zone_delta = int(self._config.out_zone_percent * 100 / columns)
+            out_zone_delta = int(((columns / 100) * self._config.out_zone_percent) / 2)
 
             # Draw dangerous zone
             cv2.rectangle(img=mask,
