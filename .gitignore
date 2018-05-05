@@ -14,3 +14,4 @@ build
 .idea
 venv-*
 .pytest_cache
+.eggs

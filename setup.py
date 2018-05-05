@@ -1,17 +1,6 @@
 import os
 
-import pip
 from setuptools import setup, find_packages
-
-
-def require(requirement_file):
-    requires = []
-    requirements = pip.req.parse_requirements(requirement_file, session=pip.download.PipSession())
-
-    for item in requirements:
-        if item.req:
-            requires.append(str(item.req))
-    return requires
 
 
 # include the non python files
@@ -28,7 +17,11 @@ car_templates = ['templates/*']
 web_controller_html = package_files('donkeycar/parts/web_controller/templates', 'donkeycar/')
 
 extra_files = car_templates + web_controller_html
-print('extra_files', extra_files)
+
+tests_require = ['pytest',
+                 'matplotlib',
+                 'pytest-docker-compose',
+                 'docker'],
 
 setup(name='donkeycar',
       version='2.2.1',
@@ -43,12 +36,36 @@ setup(name='donkeycar',
               'donkey=donkeycar.management.base:execute_from_command_line',
           ],
       },
-      install_requires=require('requirements.txt'),
-      tests_require=require('requirements-dev.txt'),
+      setup_requires=['pytest-runner'],
+      install_requires=['numpy',
+                        'pillow',
+                        'docopt',
+                        'tornado==4.5.3',
+                        'requests',
+                        'python-socketio',
+                        'flask',
+                        'eventlet',
+                        'moviepy',
+                        'pandas',
+                        'imutils',
+                        'opencv-python',
+                        'pyserial',
+                        'paho-mqtt'],
+      tests_require=['pytest',
+                     'matplotlib',
+                     'pytest-docker-compose',
+                     'docker'],
       extras_require={
-          'pi': require('requirements-pi.txt'),
-          'learning': require('requirements-learning.txt'),
-          'tests': require('requirements-dev.txt'),
+          'pi': ['picamera',
+                 'Adafruit_PCA9685',
+                 'RPi.GPIO',
+                 'smbus-cffi',
+                 'wiringpi',
+                 'Pygame'],
+          'learning': ['keras',
+                       'tensorflow>=1.1',
+                       'h5py'],
+          'tests': tests_require
       },
       package_data={
           'donkeycar': extra_files,

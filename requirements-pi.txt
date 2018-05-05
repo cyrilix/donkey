@@ -1,9 +1,0 @@
-picamera
-Adafruit_PCA9685
-RPi.GPIO
-smbus-cffi
-
-
-wiringpi
-Pygame
-
