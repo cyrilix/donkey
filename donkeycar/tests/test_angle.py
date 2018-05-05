@@ -3,10 +3,9 @@ from typing import Dict, List
 
 import pytest
 from paho.mqtt.client import Client
-from pytest_docker_compose import NetworkInfo
 
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed
+from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
 
 logger = logging.getLogger(__name__)
 

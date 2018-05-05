@@ -2,11 +2,10 @@ from typing import Dict, List
 
 import pytest
 from paho.mqtt.client import Client
-from pytest_docker_compose import NetworkInfo
 
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
     ThrottleConfigController
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed
+from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
 
 
 @pytest.fixture(name='throttle_config_controller')

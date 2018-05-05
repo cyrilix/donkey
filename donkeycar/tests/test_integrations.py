@@ -1,12 +1,11 @@
 from typing import List, Dict
 
 import pytest
-from pytest_docker_compose import NetworkInfo
 
 import donkeycar as dk
 from donkeycar.parts.camera import ImageListCamera
 from donkeycar.templates.fousduvolant_base import BaseVehicle
-from donkeycar.tests.conftest import wait_port_open
+from donkeycar.tests.conftest import wait_port_open, NetworkInfo
 
 
 class MalabilleCar(BaseVehicle):

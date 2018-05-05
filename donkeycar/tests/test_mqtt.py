@@ -3,10 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 from paho.mqtt.client import MQTTMessage, Client
-from pytest_docker_compose import NetworkInfo
 
 from donkeycar.parts.mqtt import on_drive_message, MqttDrive
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed
+from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
 
 
 class TestOnDriveMessage:

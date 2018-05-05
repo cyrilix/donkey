@@ -3,10 +3,9 @@ from typing import Dict, List
 import numpy as np
 import pytest
 from paho.mqtt.client import Client
-from pytest_docker_compose import NetworkInfo
 
 from donkeycar.parts.threshold import ThresholdController, ThresholdValueEstimator, ThresholdConfigController
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, _load_img_gray
+from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, _load_img_gray, NetworkInfo
 
 
 @pytest.fixture(name='threshold_config_controller_static')

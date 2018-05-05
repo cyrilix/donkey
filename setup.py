@@ -53,7 +53,7 @@ setup(name='donkeycar',
                         'paho-mqtt'],
       tests_require=['pytest',
                      'matplotlib',
-                     'pytest-docker-compose',
+                     'docker-compose',
                      'docker'],
       extras_require={
           'pi': ['picamera',
