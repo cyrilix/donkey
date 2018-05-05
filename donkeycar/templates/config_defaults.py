@@ -65,8 +65,11 @@ JOYSTICK_MAX_THROTTLE = 0.25
 JOYSTICK_STEERING_SCALE = 1.0
 AUTO_RECORD_ON_THROTTLE = True
 
-# Contours detection
+######################
+# Contours detection #
+######################
 POLY_DP_MIN = 4
+POLY_DP_MAX = 1000
 ARC_LENGTH_MIN = 15
 ARC_LENGTH_MAX = 100000000
 
@@ -85,8 +88,9 @@ THRESHOLD_DYNAMIC_DELTA = 10
 # PILOT
 DEBUG_PILOT = True
 
-#########
+##########
 #  Angle #
+##########
 USE_ONLY_NEAR_CONTOUR = True
 OUT_ZONE_PERCENT = 20
 CENTRAL_ZONE_PERCENT = 20

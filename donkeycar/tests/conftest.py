@@ -10,6 +10,7 @@ from compose.cli.command import project_from_options
 from compose.container import Container
 from compose.project import Project
 from compose.service import ImageType
+from numpy import ndarray
 from paho.mqtt import client as mqtt
 from time import sleep
 
@@ -91,6 +92,21 @@ def _load_img(img):
 
 def _load_img_gray(img):
     return cv2.cvtColor(_load_img(img), cv2.COLOR_RGB2GRAY)
+
+
+@pytest.fixture(scope='session')
+def img_straight_line_gray() -> ndarray:
+    return _load_img_gray("straight_line_1.jpg")
+
+
+@pytest.fixture(scope='session')
+def img_turn_right_gray() -> ndarray:
+    return _load_img_gray("turn_right.jpg")
+
+
+@pytest.fixture(scope='session')
+def img_straight_line_binarized_150_200() -> ndarray:
+    return _load_img_gray('straight_line_binarized_150_200.jpg')
 
 
 @pytest.fixture(scope='session')

@@ -1,11 +1,11 @@
-from typing import Dict, List
-
+import numpy as np
 import numpy as np
 import pytest
 from paho.mqtt.client import Client
 
-from donkeycar.parts.threshold import ThresholdController, ThresholdValueEstimator, ThresholdConfigController
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, _load_img_gray, NetworkInfo
+from donkeycar.parts.threshold import ThresholdController, ThresholdValueEstimator, ThresholdConfigController, \
+    ContoursConfigController, ContoursDetector
+from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
 
 
 @pytest.fixture(name='threshold_config_controller_static')
@@ -22,8 +22,8 @@ def threshold_controller(threshold_config_controller_static) -> ThresholdControl
 
 class TestThresholdController:
 
-    def test_straight_line(self, threshold_controller: ThresholdController):
-        assert len(threshold_controller.run(_load_img_gray("straight_line_1.jpg"))) > 0
+    def test_straight_line(self, threshold_controller: ThresholdController, img_straight_line_gray: np.ndarray):
+        assert len(threshold_controller.run(image_gray=img_straight_line_gray)) > 0
 
     def test_threshold_min_max(self, threshold_controller: ThresholdController):
         threshold_controller._config.limit_min = 170
@@ -47,11 +47,10 @@ class TestThresholdController:
 
 class TestThresholdValueEstimator:
 
-    def test_get_value(self):
-        img = _load_img_gray('straight_line_1.jpg')
+    def test_get_value(self, img_straight_line_gray: np.ndarray):
         value_estimator = ThresholdValueEstimator(init_value=200)
 
-        assert value_estimator.run(img_gray=img) == 217
+        assert value_estimator.run(img_gray=img_straight_line_gray) == 217
 
 
 @pytest.fixture(name='threshold_config_controller_mqtt')
@@ -137,3 +136,67 @@ class TestThresholdConfigController:
         assert t_dynamic_enabled == True
         assert t_default == 100
         assert t_delta == 5
+
+
+@pytest.fixture(name='config_contours')
+def fixture_contours_config_controller(mqtt_service: NetworkInfo) -> ContoursConfigController:
+    host = 'localhost'
+    port = 1883
+    wait_port_open(host=host, port=port)
+    return ContoursConfigController(poly_dp_min=4, poly_dp_max=100,
+                                    arc_length_min=10, arc_length_max=100000,
+                                    mqtt_enable=True,
+                                    mqtt_hostname=host,
+                                    mqtt_port=port,
+                                    mqtt_qos=1,
+                                    mqtt_client_id='donkey-config-contours-',
+                                    mqtt_topic='test/car/config/contours/#')
+
+
+class TestContoursConfigController:
+
+    def test_config(self, config_contours: ContoursConfigController, mqtt_config: Client):
+        poly_dp_min, poly_dp_max, arc_length_min, arc_length_max = config_contours.run()
+
+        assert arc_length_min == 10
+        assert arc_length_max == 100000
+        assert poly_dp_min == 4
+        assert poly_dp_max == 100
+
+        wait_all_mqtt_messages_consumed(
+            f'mqtt-subscription-{config_contours._mqtt_client_id}'
+            f'qos{config_contours.qos}')
+
+        mqtt_config.publish(topic='test/car/config/contours/arc_length_min', payload="1", qos=1).wait_for_publish()
+        mqtt_config.publish(topic='test/car/config/contours/arc_length_max', payload="10", qos=1).wait_for_publish()
+        mqtt_config.publish(topic='test/car/config/contours/poly_dp_min', payload="5", qos=1).wait_for_publish()
+        mqtt_config.publish(topic='test/car/config/contours/poly_dp_max', payload="20", qos=1).wait_for_publish()
+
+        wait_all_mqtt_messages_consumed(
+            f'mqtt-subscription-{config_contours._mqtt_client_id}'
+            f'qos{config_contours.qos}')
+
+        poly_dp_min, poly_dp_max, arc_length_min, arc_length_max = config_contours.run()
+
+        assert arc_length_min == 1
+        assert arc_length_max == 10
+        assert poly_dp_min == 5
+        assert poly_dp_max == 20
+
+
+@pytest.fixture(name='contours_detector')
+def fixture_contours_detector() -> ContoursDetector:
+    return ContoursDetector(config=ContoursConfigController(mqtt_enable=False))
+
+
+class TestContoursDetector:
+
+    def test_process(self, contours_detector: ContoursDetector, img_straight_line_binarized_150_200: np.ndarray):
+        contours, centroids = contours_detector.process_image(img_binarized=img_straight_line_binarized_150_200)
+        assert len(contours) == 5
+        assert len(centroids) == 5
+
+        contours_detector._config.poly_dp_max = 6
+        contours, centroids = contours_detector.process_image(img_binarized=img_straight_line_binarized_150_200)
+        assert len(contours) == 4
+        assert len(centroids) == 4

@@ -15,15 +15,61 @@ Centroid = Tuple[int, int]
 Shape = List[Tuple[int, int]]
 
 
+class ContoursConfigController(MqttController):
+
+    def __init__(self, poly_dp_min: int = 4, poly_dp_max: int = 100, arc_length_min: int = 10,
+                 arc_length_max: int = 100000,
+                 mqtt_enable: bool = True,
+                 mqtt_topic: str = 'config/contours/#', mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
+                 mqtt_client_id: str = "donkey-config-contours-", mqtt_username: str = None, mqtt_password: str = None,
+                 mqtt_qos: int = 0):
+        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                         mqtt_username, on_message=_on_contours_config_message)
+        self.poly_dp_min = poly_dp_min
+        self.poly_dp_max = poly_dp_max
+        self.arc_length_min = arc_length_min
+        self.arc_length_max = arc_length_max
+
+    def run(self) -> (int, int, int, int):
+        """
+        :return: parts
+            * cfg/contours/poly_dp_min
+            * cfg/contours/poly_dp_max
+            * cfg/contours/arc_length_min
+            * cfg/contours/arc_length_max
+        """
+        return self.poly_dp_min, self.poly_dp_max, self.arc_length_min, self.arc_length_max
+
+
+def _on_contours_config_message(client: Client, userdata: ContoursConfigController, msg: MQTTMessage):
+    logger.info('new message: %s', msg.topic)
+    if msg.topic.endswith("contours/poly_dp_min"):
+        new_value = int(msg.payload)
+        logger.info("Update contours poly_dp_min from %s to %s", userdata.poly_dp_min, new_value)
+        userdata.poly_dp_min = new_value
+    elif msg.topic.endswith("contours/poly_dp_max"):
+        new_value = int(msg.payload)
+        logger.info("Update contours poly_dp_max from %s to %s", userdata.poly_dp_max, new_value)
+        userdata.poly_dp_max = new_value
+    elif msg.topic.endswith("contours/arc_length_min"):
+        new_value = int(msg.payload)
+        logger.info("Update contours arc_length_min from %s to %s", userdata.arc_length_min, new_value)
+        userdata.arc_length_min = new_value
+    elif msg.topic.endswith("contours/arc_length_max"):
+        new_value = int(msg.payload)
+        logger.info("Update contours arc_length_max from %s to %s", userdata.arc_length_max, new_value)
+        userdata.arc_length_max = new_value
+    else:
+        logger.warning("Unexpected msg for topic %s", msg.topic)
+
+
 class ContoursDetector:
     """
     Search patterns in gray image and extract centroid coordinates matching
     """
 
-    def __init__(self, poly_dp_min=4, arc_length_min=10, arc_length_max=100000):
-        self._poly_dp_min = poly_dp_min
-        self._arc_length_min = arc_length_min
-        self._arc_length_max = arc_length_max
+    def __init__(self, config: ContoursConfigController = ContoursConfigController(mqtt_enable=False)):
+        self._config = config
 
     def process_image(self, img_binarized: ndarray) -> (List[Shape], List[Centroid]):
         (_, cntrs, _) = self._search_geometry(img_binarized)
@@ -39,7 +85,10 @@ class ContoursDetector:
             peri = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.05 * peri, True)
 
-            if len(approx) < self._poly_dp_min or peri < self._arc_length_min or peri > self._arc_length_max:
+            if len(approx) < self._config.poly_dp_min \
+                    or len(approx) > self._config.poly_dp_max \
+                    or peri < self._config.arc_length_min \
+                    or peri > self._config.arc_length_max:
                 continue
 
             shapes.append(approx)
@@ -172,7 +221,7 @@ class ThresholdValueEstimator:
         return img_debug
 
 
-def _on_threshold_config_message(client: Client, userdata, msg: MQTTMessage):
+def _on_threshold_config_message(client: Client, userdata: ThresholdConfigController, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("threshold/min"):
         new_limit = int(msg.payload)

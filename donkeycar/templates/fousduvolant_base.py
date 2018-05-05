@@ -6,9 +6,9 @@ from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigControlle
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.mqtt import MqttPart, MqttDrive
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
-    ConvertToGrayPart, ContoursDetector, ContourController
-from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, ThrottleController, \
-    ThrottleConfigController
+    ConvertToGrayPart, ContoursDetector, ContourController, ContoursConfigController
+from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
+    ThrottleController, ThrottleConfigController
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import LocalWebController
 
@@ -39,10 +39,7 @@ class BaseVehicle(Vehicle):
         # Convert image to gray
         self.add(ConvertToGrayPart(), inputs=['cam/image_array'], outputs=['img/gray'])
 
-        #  Contours processing
-        contours_detector = ContoursDetector(poly_dp_min=cfg.POLY_DP_MIN,
-                                             arc_length_min=cfg.ARC_LENGTH_MIN,
-                                             arc_length_max=cfg.ARC_LENGTH_MAX)
+        contours_detector = self._configure_contours_detector(cfg)
 
         threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_DYNAMIC_INIT,
                                                             contours_detector=contours_detector)
@@ -92,6 +89,20 @@ class BaseVehicle(Vehicle):
 
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
 
+    def _configure_contours_detector(self, cfg):
+        #  Contours processing
+        config = ContoursConfigController(poly_dp_min=cfg.POLY_DP_MIN,
+                                          poly_dp_max=cfg.POLY_DP_MAX,
+                                          arc_length_min=cfg.ARC_LENGTH_MIN,
+                                          arc_length_max=cfg.ARC_LENGTH_MAX,
+                                          mqtt_enable=True)
+        contours_detector = ContoursDetector(config=config)
+        self.add(config, outputs=['cfg/contours/poly_dp_min',
+                                  'cfg/contours/poly_dp_max',
+                                  'cfg/contours/arc_length_min',
+                                  'cfg/contours/arc_length_max'])
+        return contours_detector
+
     def _configure_angle_part(self, cfg):
         config = AngleConfigController(use_only_near_contour=cfg.USE_ONLY_NEAR_CONTOUR,
                                        out_zone_percent=cfg.OUT_ZONE_PERCENT,
@@ -124,6 +135,11 @@ class BaseVehicle(Vehicle):
             'pilot/angle': 'float',
             'pilot/throttle': 'float',
 
+            'cfg/contours/poly_dp_min': 'int',
+            'cfg/contours/poly_dp_max': 'int',
+            'cfg/contours/arc_length_min': 'int',
+            'cfg/contours/arc_length_max': 'int',
+
             'cfg/threshold/from_line': 'int',
             'cfg/threshold/dynamic/enabled': 'boolean',
             'cfg/threshold/dynamic/default': 'int',
@@ -148,6 +164,8 @@ class BaseVehicle(Vehicle):
         }
         inputs = ['cam/image_array', 'img/gray', 'img/processed', 'img/contours', 'img/angle_zone', 'user/angle',
                   'user/throttle', 'pilot/angle', 'pilot/throttle',
+                  'cfg/contours/poly_dp_min', 'cfg/contours/poly_dp_max', 'cfg/contours/arc_length_min',
+                  'cfg/contours/arc_length_max',
                   'cfg/threshold/from_line', 'cfg/threshold/dynamic/enabled',
                   'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min',
                   'cfg/threshold/limit/max', 'cfg/throttle/compute_from_steering', 'cfg/throttle/min',
