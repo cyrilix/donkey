@@ -74,7 +74,7 @@ class NetworkInfo:
 
 
 @pytest.fixture(name='mqtt_config')
-def fixture_mqtt_config(docker_network_info: Dict[str, List[NetworkInfo]]):
+def fixture_mqtt_config(mqtt_service: NetworkInfo):
     wait_port_open('localhost', 1883)
     mqtt_client = mqtt.Client(client_id="test-push-config", clean_session=False, userdata=None, protocol=mqtt.MQTTv311)
     mqtt_client.connect(host='localhost', port=1883, keepalive=60)
@@ -180,3 +180,8 @@ def docker_project():
     project.build()
 
     return project
+
+
+@pytest.fixture(scope='session')
+def mqtt_service(docker_network_info: Dict[str, List[NetworkInfo]]) -> NetworkInfo:
+    return docker_network_info["donkeycar_mqtt_1"][0]

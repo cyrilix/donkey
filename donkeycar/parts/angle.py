@@ -33,19 +33,15 @@ def _on_angle_config_message(client: Client, userdata, msg: MQTTMessage):
 
 class AngleConfigController(MqttController):
 
-    def __init__(self,
-                 use_only_near_contour=False,
-                 out_zone_percent=20, central_zone_percent=20,
-                 mqtt_enable: bool = True, mqtt_topic: str = 'config/angle/#',
-                 mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
-                 mqtt_client_id: str = "donkey-config-angle-", mqtt_username: str = None, mqtt_password: str = None,
-                 mqtt_qos: int = 0,
-                 ):
+    def __init__(self, use_only_near_contour=False, out_zone_percent=20, central_zone_percent=20,
+                 mqtt_enable: bool = True, mqtt_topic: str = 'config/angle/#', mqtt_hostname: str = 'localhost',
+                 mqtt_port: int = 1883, mqtt_client_id: str = "donkey-config-angle-", mqtt_username: str = None,
+                 mqtt_password: str = None, mqtt_qos: int = 0):
+        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                         mqtt_username, on_message=_on_angle_config_message)
         self.use_only_near_contour = use_only_near_contour
         self.out_zone_percent = out_zone_percent
         self.central_zone_percent = central_zone_percent
-        self._init_mqtt(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                        mqtt_username, on_message=_on_angle_config_message)
 
     def run(self) -> (bool, int, int):
         """
@@ -54,7 +50,6 @@ class AngleConfigController(MqttController):
             * cfg/angle/out_zone_percent
             * cfg/angle/central_zone_percent
         """
-
         return self.use_only_near_contour, self.out_zone_percent, self.central_zone_percent
 
 

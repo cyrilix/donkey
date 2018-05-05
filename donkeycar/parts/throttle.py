@@ -8,7 +8,47 @@ from donkeycar.parts.mqtt import MqttController
 logger = logging.getLogger(__name__)
 
 
-def _on_throttle_config_message(client: Client, userdata, msg: MQTTMessage):
+class ThrottleConfigController(MqttController):
+
+    def __init__(self, min_speed: float, max_speed: float, safe_angle: float, dangerous_angle: float,
+                 use_steering: bool, stop_on_shock: bool, mqtt_enable: bool = True,
+                 mqtt_topic: str = 'config/throttle/#', mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
+                 mqtt_client_id: str = "donkey-config-throttle-", mqtt_username: str = None, mqtt_password: str = None,
+                 mqtt_qos: int = 0):
+        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                         mqtt_username, on_message=_on_throttle_config_message)
+        self.min_speed = min_speed
+        self.max_speed = max_speed
+        self.safe_angle = safe_angle
+        self.dangerous_angle = dangerous_angle
+        self.use_steering = use_steering
+        self.stop_on_shock = stop_on_shock
+
+    def run(self) -> (bool, float, float, float, float, bool):
+        """
+        :return: parts
+            * cfg/throttle/compute_from_steering
+            * cfg/throttle/min
+            * cfg/throttle/max
+            * cfg/throttle/angle/safe
+            * cfg/throttle/angle/dangerous
+            * cfg/throttle/stop_on_shock
+        """
+
+        return self.use_steering, self.min_speed, self.max_speed, self.safe_angle, self.dangerous_angle, \
+               self.stop_on_shock
+
+    @staticmethod
+    def get_outputs_name_parts() -> List[str]:
+        return ['cfg/throttle/compute_from_steering',
+                'cfg/throttle/min',
+                'cfg/throttle/max',
+                'cfg/throttle/angle/safe',
+                'cfg/throttle/angle/dangerous',
+                'cfg/throttle/stop_on_shock']
+
+
+def _on_throttle_config_message(client: Client, userdata: ThrottleConfigController, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("throttle/min"):
         new_value = float(msg.payload)
@@ -38,49 +78,6 @@ def _on_throttle_config_message(client: Client, userdata, msg: MQTTMessage):
         userdata.use_steering = new_value
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
-
-
-class ThrottleConfigController(MqttController):
-
-    def __init__(self,
-                 min_speed: float, max_speed: float, safe_angle: float, dangerous_angle: float, use_steering: bool,
-                 stop_on_shock: bool,
-                 mqtt_enable: bool = True, mqtt_topic: str = 'config/throttle/#',
-                 mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
-                 mqtt_client_id: str = "donkey-config-throttle-", mqtt_username: str = None, mqtt_password: str = None,
-                 mqtt_qos: int = 0,
-                 ):
-        self.min_speed = min_speed
-        self.max_speed = max_speed
-        self.safe_angle = safe_angle
-        self.dangerous_angle = dangerous_angle
-        self.use_steering = use_steering
-        self.stop_on_shock = stop_on_shock
-        self._init_mqtt(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                        mqtt_username, on_message=_on_throttle_config_message)
-
-    def run(self) -> (bool, float, float, float, float, bool):
-        """
-        :return: parts
-            * cfg/throttle/compute_from_steering
-            * cfg/throttle/min
-            * cfg/throttle/max
-            * cfg/throttle/angle/safe
-            * cfg/throttle/angle/dangerous
-            * cfg/throttle/stop_on_shock
-        """
-
-        return self.use_steering, self.min_speed, self.max_speed, self.safe_angle, self.dangerous_angle, \
-               self.stop_on_shock
-
-    @staticmethod
-    def get_outputs_name_parts() -> List[str]:
-        return ['cfg/throttle/compute_from_steering',
-                'cfg/throttle/min',
-                'cfg/throttle/max',
-                'cfg/throttle/angle/safe',
-                'cfg/throttle/angle/dangerous',
-                'cfg/throttle/stop_on_shock']
 
 
 class ThrottleControllerFixedSpeed:

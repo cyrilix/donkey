@@ -1,11 +1,12 @@
 import base64
 import json
 import logging
-import time
 from datetime import datetime
+from typing import Callable, Any
 
 import numpy
 import requests
+import time
 from paho.mqtt import client as mqtt
 from paho.mqtt.client import Client, MQTTMessage
 
@@ -134,17 +135,10 @@ class MqttPart:
         self._current_idx = 0
 
 
-def _on_connect(client: Client, userdata, flags, rc: int):
-    logger.info("Connected with result code %s", rc)
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    client.subscribe(userdata.topic, userdata.qos)
-    logger.info("Subscribe to %s topic", userdata.topic)
-
-
 class MqttController:
-    def _init_mqtt(self, mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                   mqtt_username, on_message):
+    def __init__(self, mqtt_client_id: str, mqtt_enable: bool, mqtt_hostname: str, mqtt_password: str, mqtt_port: int,
+                 mqtt_qos: int, mqtt_topic: str, mqtt_username: str,
+                 on_message: Callable[[Client, Any, MQTTMessage], None]):
         self._mqtt_client_id = mqtt_client_id
         if mqtt_enable:
             logger.info("Init mqtt connection to %s topic", mqtt_topic)
@@ -155,11 +149,11 @@ class MqttController:
 
             if mqtt_username:
                 self._mqtt_client.username_pw_set(username=mqtt_username, password=mqtt_password)
+            self._mqtt_client.user_data_set(userdata=self)
             self._mqtt_client.on_connect = _on_connect
             self._mqtt_client.on_message = on_message
             self._mqtt_client.connect(mqtt_hostname, mqtt_port, 60)
             self._mqtt_client.loop_start()
-            self._mqtt_client.subscribe(self.topic, self.qos)
 
     def shutdown(self):
         if self._mqtt_client:
@@ -167,7 +161,32 @@ class MqttController:
             self._mqtt_client.disconnect()
 
 
-def on_drive_message(client: Client, userdata, msg: MQTTMessage):
+def _on_connect(client: Client, userdata: MqttController, flags, rc: int):
+    logger.info("Connected with result code %s", rc)
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    client.subscribe(userdata.topic, userdata.qos)
+    logger.info("Subscribe to %s topic", userdata.topic)
+
+
+class MqttDrive(MqttController):
+
+    def __init__(self, mqtt_enable: bool = True, mqtt_topic: str = 'config/drive/#',
+                 mqtt_hostname: str = 'localhost', mqtt_port: int = 1883, mqtt_client_id: str = "donkey-config-mqtt-",
+                 mqtt_username: str = None, mqtt_password: str = None, mqtt_qos: int = 0):
+        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                         mqtt_username, on_message=on_drive_message)
+        self.user_mode = "user"
+
+    def run(self) -> str:
+        """
+        :return: parts
+        * user/mode
+        """
+        return self.user_mode
+
+
+def on_drive_message(client: Client, userdata: MqttDrive, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("drive/mode"):
         new_value = msg.payload.decode('utf-8')
@@ -177,26 +196,3 @@ def on_drive_message(client: Client, userdata, msg: MQTTMessage):
                       json=json.dumps({'angle': 0, 'throttle': 0, 'drive_mode': new_value}))
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
-
-
-class MqttDrive(MqttController):
-
-    def __init__(self,
-                 mqtt_enable: bool = True, mqtt_topic: str = 'config/drive/#',
-                 mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
-                 mqtt_client_id: str = "donkey-config-mqtt-", mqtt_username: str = None, mqtt_password: str = None,
-                 mqtt_qos: int = 0
-                 ):
-        self.user_mode = "user"
-        self._init_mqtt(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                        mqtt_username, on_message=on_drive_message)
-
-    def run(self) -> str:
-        """
-        :return: parts
-        * user/mode
-        """
-        return self.user_mode
-
-    def shutdown(self):
-        pass

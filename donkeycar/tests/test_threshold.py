@@ -55,9 +55,8 @@ class TestThresholdValueEstimator:
 
 
 @pytest.fixture(name='threshold_config_controller_mqtt')
-def fixture_threshold_config_controller_mqtt(docker_network_info: Dict[str, List[NetworkInfo]]) \
+def fixture_threshold_config_controller_mqtt(mqtt_service: NetworkInfo) \
         -> ThresholdConfigController:
-    mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
     host = 'localhost'
     port = 1883
     wait_port_open(host=host, port=port)

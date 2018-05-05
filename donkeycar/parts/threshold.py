@@ -66,18 +66,17 @@ class ContoursDetector:
 class ThresholdConfigController(MqttController):
 
     def __init__(self, limit_min: int, limit_max: int, threshold_dynamic: bool, threshold_default: int,
-                 threshold_delta: int,
-                 mqtt_enable: bool = True, mqtt_topic: str = 'config/threshold/#', mqtt_hostname: str = 'localhost',
-                 mqtt_port: int = 1883,
-                 mqtt_client_id: str = "donkey-config-threshold-",
-                 mqtt_username: str = None, mqtt_password: str = None, mqtt_qos: int = 0):
+                 threshold_delta: int, mqtt_enable: bool = True,
+                 mqtt_topic: str = 'config/threshold/#', mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
+                 mqtt_client_id: str = "donkey-config-threshold-", mqtt_username: str = None, mqtt_password: str = None,
+                 mqtt_qos: int = 0):
+        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                         mqtt_username, on_message=_on_threshold_config_message)
         self.limit_min = limit_min
         self.limit_max = limit_max
         self.dynamic_enabled = threshold_dynamic
         self.dynamic_default = threshold_default
         self.dynamic_delta = threshold_delta
-        self._init_mqtt(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                        mqtt_username, on_message=_on_threshold_config_message)
 
     def run(self, threshold_from_line: int) -> (int, int, bool, int, int):
         """
@@ -92,6 +91,7 @@ class ThresholdConfigController(MqttController):
             self.dynamic_default = threshold_from_line
             self.limit_min = self.dynamic_default - self.dynamic_delta
             self.limit_max = self.dynamic_default + self.dynamic_delta
+
         return self.limit_min, self.limit_max, \
                self.dynamic_enabled, self.dynamic_default, self.dynamic_delta
 

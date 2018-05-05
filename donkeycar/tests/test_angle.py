@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 
 import pytest
 from paho.mqtt.client import Client
@@ -51,8 +50,7 @@ class TestAngleEstimatorMiddleLine:
 
 
 @pytest.fixture(name='angle_config_controller')
-def fixture_angle_config_controller_mqtt(docker_network_info: Dict[str, List[NetworkInfo]]) -> AngleConfigController:
-    mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
+def fixture_angle_config_controller_mqtt(mqtt_service: NetworkInfo) -> AngleConfigController:
     host = 'localhost'
     port = 1883
     wait_port_open(host=host, port=port)
