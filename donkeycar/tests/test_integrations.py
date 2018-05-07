@@ -31,5 +31,8 @@ def fixture_car(docker_network_info: Dict[str, List[NetworkInfo]]):
     return MalabilleCar(cfg=cfg)
 
 
-def test_run(car: MalabilleCar):
+def test_run(car: MalabilleCar, caplog):
     car.start(rate_hz=20, max_loop_count=10)
+    for record in caplog.records:
+        assert record.levelname != 'CRITICAL'
+        assert record.levelname != 'ERROR'

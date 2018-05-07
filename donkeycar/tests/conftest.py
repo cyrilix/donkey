@@ -1,4 +1,5 @@
 import logging
+import os
 import typing
 from pathlib import Path
 from typing import Dict, List
@@ -86,7 +87,7 @@ def fixture_mqtt_config(mqtt_service: NetworkInfo):
 
 
 def _load_img(img):
-    path = "donkeycar/tests/data/" + img
+    path = os.path.join(_base_path(), "donkeycar/tests/data/", img)
     return cv2.imread(path)
 
 
@@ -179,7 +180,8 @@ def docker_project():
     Returns the project instance, which can be used to start and stop
     the Docker containers.
     """
-    docker_compose = Path(".")
+    path = _base_path()
+    docker_compose = Path(path)
 
     if docker_compose.is_dir():
         docker_compose /= "docker-compose.yml"
@@ -196,6 +198,11 @@ def docker_project():
     project.build()
 
     return project
+
+
+def _base_path():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+    return path
 
 
 @pytest.fixture(scope='session')

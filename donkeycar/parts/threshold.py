@@ -174,34 +174,59 @@ class ThresholdController:
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
 
 
+class ThresholdValueEstimatorConfig(MqttController):
+
+    def __init__(self, centroid_value=190,
+                 mqtt_enable: bool = True,
+                 mqtt_topic: str = 'config/threshold_value_estimator/#', mqtt_hostname: str = 'localhost',
+                 mqtt_port: int = 1883, mqtt_client_id: str = "donkey-config-threshold_value_estimator-",
+                 mqtt_username: str = None, mqtt_password: str = None, mqtt_qos: int = 0):
+        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                         mqtt_username, on_message=on_message_threshold_value_estimator)
+        self.centroid_value = centroid_value
+
+    def run(self):
+        """
+        :return: parts:
+          * cfg/threshold_value_estimator/centroid_value
+        """
+        return self.centroid_value
+
+
+def on_message_threshold_value_estimator(client: Client, userdata: ThresholdValueEstimatorConfig, msg: MQTTMessage):
+    logger.info('new message: %s', msg.topic)
+    if msg.topic.endswith("threshold_value_estimator/centroid_value"):
+        new_value = int(msg.payload)
+        logger.info("Update contours thresh value_estimator value from %s to %s", userdata.centroid_value, new_value)
+        userdata.centroid_value = new_value
+    else:
+        logger.warning("Unexpected msg for topic %s", msg.topic)
+
+
 class ThresholdValueEstimator:
     """
     Threshold estimation on gray image. Use near centroid to find pixel value
     """
 
-    def __init__(self, init_value=190, contours_detector: ContoursDetector = None):
-
-        self._init_value = init_value
-        self._value = init_value
+    def __init__(self, config=ThresholdValueEstimatorConfig(centroid_value=190, mqtt_enable=False),
+                 contours_detector=ContoursDetector()):
+        self._config = config
         self._video_frame = None
-        if contours_detector:
-            self._contours_detector = contours_detector
-        else:
-            self._contours_detector = ContoursDetector()
+        self._contours_detector = contours_detector
 
     def shutdown(self):
         pass
 
     def run(self, img_gray: ndarray) -> int:
         try:
-            (_, binary) = cv2.threshold(img_gray.copy(), self._value, 255, 0, cv2.THRESH_BINARY)
+            (_, binary) = cv2.threshold(img_gray.copy(), self._config.centroid_value, 255, 0, cv2.THRESH_BINARY)
             (shapes, centroids) = self._contours_detector.process_image(img_binarized=binary)
 
             if not centroids:
-                return self._init_value
+                return self._config.centroid_value
 
             value = img_gray.item((centroids[0][1], centroids[0][0]))
-            self._value = value
+            self._config.centroid_value = value
             logger.debug("Threshold value estimate: %s", value)
 
             self.draw_image_debug(centroids[0], img_gray, [shapes[0]], value)
@@ -209,7 +234,7 @@ class ThresholdValueEstimator:
         except Exception:
             import numpy
             logging.exception("Unexpected error")
-            return self._init_value
+            return self._config.centroid_value
 
     def draw_image_debug(self, centroid: Centroid, img_gray: ndarray, shape: Shape, value: int) -> ndarray:
         img_debug = cv2.cvtColor(img_gray.copy(), cv2.COLOR_GRAY2RGB)

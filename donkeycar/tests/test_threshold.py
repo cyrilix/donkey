@@ -4,7 +4,7 @@ import pytest
 from paho.mqtt.client import Client
 
 from donkeycar.parts.threshold import ThresholdController, ThresholdValueEstimator, ThresholdConfigController, \
-    ContoursConfigController, ContoursDetector
+    ContoursConfigController, ContoursDetector, ThresholdValueEstimatorConfig
 from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
 
 
@@ -45,12 +45,41 @@ class TestThresholdController:
             assert list(img[i]) == list(np.zeros((256,)))
 
 
+class TestThresholdValueEstimatorConfigController:
+    @pytest.fixture(name='threshold_value_config')
+    def fixture_threshold_value_config(self, mqtt_service: NetworkInfo) -> ThresholdValueEstimatorConfig:
+        host = 'localhost'
+        port = 1883
+        wait_port_open(host=host, port=port)
+        return ThresholdValueEstimatorConfig(centroid_value=120,
+                                             mqtt_enable=True,
+                                             mqtt_hostname=host,
+                                             mqtt_port=port,
+                                             mqtt_qos=1,
+                                             mqtt_client_id='donkey-config-threshold_value-',
+                                             mqtt_topic='test/car/config/threshold_value_estimator/#')
+
+    def test_run(self, threshold_value_config: ThresholdValueEstimatorConfig, mqtt_config: Client):
+        centroid_value = threshold_value_config.run()
+        assert centroid_value == 120
+
+        wait_all_mqtt_messages_consumed(f'mqtt-subscription-{threshold_value_config._mqtt_client_id}'
+                                        f'qos{threshold_value_config.qos}')
+        mqtt_config.publish(topic='test/car/config/threshold_value_estimator/centroid_value',
+                            payload="220", qos=1).wait_for_publish()
+        wait_all_mqtt_messages_consumed(f'mqtt-subscription-{threshold_value_config._mqtt_client_id}'
+                                        f'qos{threshold_value_config.qos}')
+
+        centroid_value = threshold_value_config.run()
+        assert centroid_value == 220
+
+
 class TestThresholdValueEstimator:
 
     def test_get_value(self, img_straight_line_gray: np.ndarray):
-        value_estimator = ThresholdValueEstimator(init_value=200)
+        value_estimator = ThresholdValueEstimator(contours_detector=190)
 
-        assert value_estimator.run(img_gray=img_straight_line_gray) == 217
+        assert value_estimator.run(img_gray=img_straight_line_gray) == 190
 
 
 @pytest.fixture(name='threshold_config_controller_mqtt')

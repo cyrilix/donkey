@@ -6,7 +6,7 @@ from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigControlle
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.mqtt import MqttPart, MqttDrive
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
-    ConvertToGrayPart, ContoursDetector, ContourController, ContoursConfigController
+    ConvertToGrayPart, ContoursDetector, ContourController, ContoursConfigController, ThresholdValueEstimatorConfig
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
     ThrottleController, ThrottleConfigController
 from donkeycar.parts.transform import Lambda
@@ -41,9 +41,7 @@ class BaseVehicle(Vehicle):
 
         contours_detector = self._configure_contours_detector(cfg)
 
-        threshold_value_estimator = ThresholdValueEstimator(init_value=cfg.THRESHOLD_DYNAMIC_INIT,
-                                                            contours_detector=contours_detector)
-        self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['cfg/threshold/from_line'])
+        self._configure_threshold_value_estimator(cfg, contour_detector=contours_detector)
 
         self._configure_threshold(cfg)
 
@@ -88,6 +86,13 @@ class BaseVehicle(Vehicle):
         self._configure_mqtt_part(cfg)
 
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
+
+    def _configure_threshold_value_estimator(self, cfg, contour_detector: ContoursDetector):
+        threshold_value_estimator_config = ThresholdValueEstimatorConfig(centroid_value=cfg.THRESHOLD_DYNAMIC_INIT)
+        self.add(threshold_value_estimator_config, outputs=['cfg/threshold_value_estimator/centroid_value'])
+        threshold_value_estimator = ThresholdValueEstimator(config=threshold_value_estimator_config,
+                                                            contours_detector=contour_detector)
+        self.add(threshold_value_estimator, inputs=['img/gray'], outputs=['cfg/threshold/from_line'])
 
     def _configure_contours_detector(self, cfg):
         #  Contours processing
@@ -147,6 +152,8 @@ class BaseVehicle(Vehicle):
             'cfg/threshold/limit/min': 'int',
             'cfg/threshold/limit/max': 'int',
 
+            'cfg/threshold_value_estimator/centroid_value': 'int',
+
             'cfg/throttle/compute_from_steering': 'boolean',
             'cfg/throttle/min': 'int',
             'cfg/throttle/max': 'int',
@@ -168,7 +175,8 @@ class BaseVehicle(Vehicle):
                   'cfg/contours/arc_length_max',
                   'cfg/threshold/from_line', 'cfg/threshold/dynamic/enabled',
                   'cfg/threshold/dynamic/default', 'cfg/threshold/dynamic/delta', 'cfg/threshold/limit/min',
-                  'cfg/threshold/limit/max', 'cfg/throttle/compute_from_steering', 'cfg/throttle/min',
+                  'cfg/threshold/limit/max', 'cfg/threshold_value_estimator/centroid_value',
+                  'cfg/throttle/compute_from_steering', 'cfg/throttle/min',
                   'cfg/throttle/max', 'cfg/throttle/angle/safe', 'cfg/throttle/angle/dangerous',
                   'cfg/throttle/stop_on_shock',
                   'cfg/angle/use_only_near_contour', 'cfg/angle/out_zone_percent', 'cfg/angle/central_zone_percent',
