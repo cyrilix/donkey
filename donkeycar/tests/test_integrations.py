@@ -27,7 +27,9 @@ def fixture_car(docker_network_info: Dict[str, List[NetworkInfo]]):
     wait_port_open(host=host, port=port)
 
     cfg = dk.load_config(config_path='donkeycar/templates/config_defaults.py')
-    return MalabilleCar(cfg=cfg)
+    car = MalabilleCar(cfg=cfg)
+    yield car
+    car.stop()
 
 
 def test_run(car: MalabilleCar, caplog):

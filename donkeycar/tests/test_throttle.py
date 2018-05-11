@@ -34,12 +34,10 @@ class TestThrottleControllerFixedSpeed:
         assert controller_fixed_speed.run(shock=False) == 0.0
 
 
-@pytest.fixture(name='throttle_controller_angle')
-def fixture_throttle_controller_angle(throttle_config_controller):
-    return ThrottleControllerSteeringBased(throttle_config_controller=throttle_config_controller)
-
-
 class TestThrottleControllerSteeringBased:
+    @pytest.fixture(name='throttle_controller_angle')
+    def fixture_throttle_controller_angle(self, throttle_config_controller):
+        return ThrottleControllerSteeringBased(throttle_config_controller=throttle_config_controller)
 
     def test_throttle_with_min_angle(self, throttle_controller_angle: ThrottleControllerSteeringBased):
         assert throttle_controller_angle.run(angle=0.0, shock=False) == 0.8
@@ -65,28 +63,27 @@ class TestThrottleControllerSteeringBased:
         assert throttle_controller_angle.run(angle=1.0, shock=False) == 0.
 
 
-@pytest.fixture(name='throttle_config_controller_mqtt')
-def fixture_throttle_config_controller_mqtt(docker_network_info: Dict[str, List[NetworkInfo]]):
-    mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
-    host = 'localhost'
-    port = 1883
-    wait_port_open(host=host, port=port)
-
-    throttle_config = ThrottleConfigController(min_speed=0.1, max_speed=1, safe_angle=0.2, dangerous_angle=0.8,
-                                               stop_on_shock=True, use_steering=False,
-                                               mqtt_enable=True,
-                                               mqtt_hostname=host,
-                                               mqtt_port=port,
-                                               mqtt_qos=1,
-                                               mqtt_client_id='donkey-config-throttle-',
-                                               mqtt_topic='test/car/config/throttle/#')
-
-    wait_all_mqtt_messages_consumed(f'mqtt-subscription-{throttle_config._mqtt_client_id}'
-                                    f'qos{throttle_config.qos}')
-    return throttle_config
-
-
 class TestThrottleConfigController:
+    @pytest.fixture(name='throttle_config_controller_mqtt')
+    def fixture_throttle_config_controller_mqtt(self, docker_network_info: Dict[str, List[NetworkInfo]]):
+        mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
+        host = 'localhost'
+        port = 1883
+        wait_port_open(host=host, port=port)
+
+        throttle_config = ThrottleConfigController(min_speed=0.1, max_speed=1, safe_angle=0.2, dangerous_angle=0.8,
+                                                   stop_on_shock=True, use_steering=False,
+                                                   mqtt_enable=True,
+                                                   mqtt_hostname=host,
+                                                   mqtt_port=port,
+                                                   mqtt_qos=1,
+                                                   mqtt_client_id='donkey-config-throttle-',
+                                                   mqtt_topic='test/car/config/throttle/#')
+
+        wait_all_mqtt_messages_consumed(f'mqtt-subscription-{throttle_config._mqtt_client_id}'
+                                        f'qos{throttle_config.qos}')
+        yield throttle_config
+        throttle_config.shutdown()
 
     def test_values(self):
         throttle_config_controller = ThrottleConfigController(mqtt_enable=False,

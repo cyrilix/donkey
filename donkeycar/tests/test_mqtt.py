@@ -40,26 +40,25 @@ class TestOnDriveMessage:
         assert mqtt_drive.user_mode == 'local'
 
 
-@pytest.fixture(name='mqtt_drive')
-def fixture_mqtt_drive(docker_network_info: Dict[str, List[NetworkInfo]]):
-    mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
-    host = 'localhost'
-    port = 1883
-    wait_port_open(host=host, port=port)
-
-    mqtt_drive = MqttDrive(mqtt_enable=True,
-                           mqtt_hostname=host,
-                           mqtt_port=port,
-                           mqtt_qos=1,
-                           mqtt_client_id='donkey-config-drive-',
-                           mqtt_topic='test/car/config/drive/#')
-
-    wait_all_mqtt_messages_consumed(f'mqtt-subscription-{mqtt_drive._mqtt_client_id}'
-                                    f'qos{mqtt_drive.qos}')
-    return mqtt_drive
-
-
 class TestDriveConfigController:
+    @pytest.fixture(name='mqtt_drive')
+    def fixture_mqtt_drive(self, docker_network_info: Dict[str, List[NetworkInfo]]) -> MqttDrive:
+        mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
+        host = 'localhost'
+        port = 1883
+        wait_port_open(host=host, port=port)
+
+        mqtt_drive = MqttDrive(mqtt_enable=True,
+                               mqtt_hostname=host,
+                               mqtt_port=port,
+                               mqtt_qos=1,
+                               mqtt_client_id='donkey-config-drive-',
+                               mqtt_topic='test/car/config/drive/#')
+
+        wait_all_mqtt_messages_consumed(f'mqtt-subscription-{mqtt_drive._mqtt_client_id}'
+                                        f'qos{mqtt_drive.qos}')
+        yield mqtt_drive
+        mqtt_drive.shutdown()
 
     def test_values(self, mqtt_drive: MqttDrive, mqtt_config: Client):
         user_mode = mqtt_drive.run()

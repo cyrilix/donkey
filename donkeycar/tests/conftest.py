@@ -193,7 +193,8 @@ def docker_project():
 
     project = project_from_options(
         project_dir=str(docker_compose.parent),
-        options={"--file": [docker_compose.name]},
+        options={"--file": [docker_compose.name],
+                 '--project-name': 'donkeycar'}
     )
     project.build()
 

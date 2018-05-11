@@ -20,7 +20,7 @@ extra_files = car_templates + web_controller_html
 
 tests_require = ['pytest',
                  'matplotlib',
-                 'pytest-docker-compose',
+                 'docker-compose',
                  'docker'],
 
 setup(name='donkeycar',

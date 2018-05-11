@@ -1,5 +1,4 @@
 import numpy as np
-import numpy as np
 import pytest
 from paho.mqtt.client import Client
 
@@ -15,12 +14,11 @@ def fixture_threshold_config_controller_static() -> ThresholdConfigController:
                                      mqtt_enable=False)
 
 
-@pytest.fixture
-def threshold_controller(threshold_config_controller_static) -> ThresholdController:
-    return ThresholdController(config=threshold_config_controller_static)
-
-
 class TestThresholdController:
+
+    @pytest.fixture
+    def threshold_controller(self, threshold_config_controller_static) -> ThresholdController:
+        return ThresholdController(config=threshold_config_controller_static)
 
     def test_straight_line(self, threshold_controller: ThresholdController, img_straight_line_gray: np.ndarray):
         assert len(threshold_controller.run(image_gray=img_straight_line_gray)) > 0
@@ -51,13 +49,15 @@ class TestThresholdValueEstimatorConfigController:
         host = 'localhost'
         port = 1883
         wait_port_open(host=host, port=port)
-        return ThresholdValueEstimatorConfig(centroid_value=120,
-                                             mqtt_enable=True,
-                                             mqtt_hostname=host,
-                                             mqtt_port=port,
-                                             mqtt_qos=1,
-                                             mqtt_client_id='donkey-config-threshold_value-',
-                                             mqtt_topic='test/car/config/threshold_value_estimator/#')
+        config = ThresholdValueEstimatorConfig(centroid_value=120,
+                                               mqtt_enable=True,
+                                               mqtt_hostname=host,
+                                               mqtt_port=port,
+                                               mqtt_qos=1,
+                                               mqtt_client_id='donkey-config-threshold_value-',
+                                               mqtt_topic='test/car/config/threshold_value_estimator/#')
+        yield config
+        config.shutdown()
 
     def test_run(self, threshold_value_config: ThresholdValueEstimatorConfig, mqtt_config: Client):
         centroid_value = threshold_value_config.run()
@@ -82,23 +82,23 @@ class TestThresholdValueEstimator:
         assert value_estimator.run(img_gray=img_straight_line_gray) == 190
 
 
-@pytest.fixture(name='threshold_config_controller_mqtt')
-def fixture_threshold_config_controller_mqtt(mqtt_service: NetworkInfo) \
-        -> ThresholdConfigController:
-    host = 'localhost'
-    port = 1883
-    wait_port_open(host=host, port=port)
-    return ThresholdConfigController(limit_min=150, limit_max=200,
-                                     threshold_dynamic=True, threshold_default=160, threshold_delta=20,
-                                     mqtt_enable=True,
-                                     mqtt_hostname=host,
-                                     mqtt_port=port,
-                                     mqtt_qos=1,
-                                     mqtt_client_id='donkey-config-threshold-',
-                                     mqtt_topic='test/car/config/threshold/#')
-
-
 class TestThresholdConfigController:
+
+    @pytest.fixture(name='threshold_config_controller_mqtt')
+    def fixture_threshold_config_controller_mqtt(self, mqtt_service: NetworkInfo) -> ThresholdConfigController:
+        host = 'localhost'
+        port = 1883
+        wait_port_open(host=host, port=port)
+        config = ThresholdConfigController(limit_min=150, limit_max=200,
+                                           threshold_dynamic=True, threshold_default=160, threshold_delta=20,
+                                           mqtt_enable=True,
+                                           mqtt_hostname=host,
+                                           mqtt_port=port,
+                                           mqtt_qos=1,
+                                           mqtt_client_id='donkey-config-threshold-',
+                                           mqtt_topic='test/car/config/threshold/#')
+        yield config
+        config.shutdown()
 
     def test_static_value(self, threshold_config_controller_static: ThresholdConfigController):
         t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_static.run(100)
@@ -167,22 +167,23 @@ class TestThresholdConfigController:
         assert t_delta == 5
 
 
-@pytest.fixture(name='config_contours')
-def fixture_contours_config_controller(mqtt_service: NetworkInfo) -> ContoursConfigController:
-    host = 'localhost'
-    port = 1883
-    wait_port_open(host=host, port=port)
-    return ContoursConfigController(poly_dp_min=4, poly_dp_max=100,
-                                    arc_length_min=10, arc_length_max=100000,
-                                    mqtt_enable=True,
-                                    mqtt_hostname=host,
-                                    mqtt_port=port,
-                                    mqtt_qos=1,
-                                    mqtt_client_id='donkey-config-contours-',
-                                    mqtt_topic='test/car/config/contours/#')
-
-
 class TestContoursConfigController:
+
+    @pytest.fixture(name='config_contours')
+    def fixture_contours_config_controller(self, mqtt_service: NetworkInfo) -> ContoursConfigController:
+        host = 'localhost'
+        port = 1883
+        wait_port_open(host=host, port=port)
+        config = ContoursConfigController(poly_dp_min=4, poly_dp_max=100,
+                                          arc_length_min=10, arc_length_max=100000,
+                                          mqtt_enable=True,
+                                          mqtt_hostname=host,
+                                          mqtt_port=port,
+                                          mqtt_qos=1,
+                                          mqtt_client_id='donkey-config-contours-',
+                                          mqtt_topic='test/car/config/contours/#')
+        yield config
+        config.shutdown()
 
     def test_config(self, config_contours: ContoursConfigController, mqtt_config: Client):
         poly_dp_min, poly_dp_max, arc_length_min, arc_length_max = config_contours.run()
@@ -213,12 +214,10 @@ class TestContoursConfigController:
         assert poly_dp_max == 20
 
 
-@pytest.fixture(name='contours_detector')
-def fixture_contours_detector() -> ContoursDetector:
-    return ContoursDetector(config=ContoursConfigController(mqtt_enable=False))
-
-
 class TestContoursDetector:
+    @pytest.fixture(name='contours_detector')
+    def fixture_contours_detector(self) -> ContoursDetector:
+        return ContoursDetector(config=ContoursConfigController(mqtt_enable=False))
 
     def test_process(self, contours_detector: ContoursDetector, img_straight_line_binarized_150_200: np.ndarray):
         contours, centroids = contours_detector.process_image(img_binarized=img_straight_line_binarized_150_200)

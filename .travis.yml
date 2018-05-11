@@ -1,0 +1,17 @@
+sudo: required
+
+language: python
+
+services:
+  - docker
+
+python:
+   - "3.6"
+
+install:
+  - pip install -e .
+  - pip install -e '.[learning]'
+  - pip install -e '.[tests]'
+
+script:
+  - pytest
