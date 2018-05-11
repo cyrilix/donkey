@@ -6,9 +6,22 @@ import numpy as np
 from numpy.core.multiarray import ndarray
 from paho.mqtt.client import Client, MQTTMessage
 
+from donkeycar.parts.camera import CAM_IMAGE
 from donkeycar.parts.mqtt import MqttController
+from donkeycar.parts.part import Part
+from donkeycar.parts.threshold import CENTROIDS
 
-Centroids = List[Tuple[int, int]]
+IMG_ANGLE_ZONE = 'img/angle_zone'
+
+CFG_ANGLE_CENTRAL_ZONE_PERCENT = 'cfg/angle/central_zone_percent'
+
+CFG_ANGLE_OUT_ZONE_PERCENT = 'cfg/angle/out_zone_percent'
+
+CFG_ANGLE_USE_ONLY_NEAR_CONTOUR = 'cfg/angle/use_only_near_contour'
+
+PILOT_ANGLE = 'pilot/angle'
+
+Centroid = Tuple[int, int]
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +65,16 @@ class AngleConfigController(MqttController):
         """
         return self.use_only_near_contour, self.out_zone_percent, self.central_zone_percent
 
+    def get_inputs_keys(self) -> List[str]:
+        return []
 
-class AngleProcessorMiddleLine:
+    def get_outputs_keys(self) -> List[str]:
+        return [CFG_ANGLE_USE_ONLY_NEAR_CONTOUR,
+                CFG_ANGLE_OUT_ZONE_PERCENT,
+                CFG_ANGLE_CENTRAL_ZONE_PERCENT]
+
+
+class AngleProcessorMiddleLine(Part):
     """
     Angle estimation from position of middle line dots
 
@@ -76,7 +97,7 @@ class AngleProcessorMiddleLine:
         self._resolution = image_resolution
         self._last_value = 0
 
-    def run(self, centroids: Centroids) -> float:
+    def run(self, centroids: List[Centroid]) -> float:
         logger.debug("Angle estimation for centroids: %s", centroids)
 
         if not centroids:
@@ -103,9 +124,6 @@ class AngleProcessorMiddleLine:
         if angle > 0:
             self._last_value = 1
         return angle
-
-    def shutdown(self):
-        pass
 
     def _compute_angle_for_centroid(self, line: float) -> float:
         # Position in percent from the left of the middle line
@@ -137,8 +155,14 @@ class AngleProcessorMiddleLine:
         logger.debug("Angle fixed: %s", str(angle))
         return angle
 
+    def get_inputs_keys(self) -> List[str]:
+        return [CENTROIDS]
 
-class AngleDebug:
+    def get_outputs_keys(self) -> List[str]:
+        return [PILOT_ANGLE]
+
+
+class AngleDebug(Part):
 
     def __init__(self, config: AngleConfigController):
         self._config = config
@@ -189,3 +213,9 @@ class AngleDebug:
         except:
             logging.exception("Unexpected error")
             return np.zeros(img.shape)
+
+    def get_inputs_keys(self) -> List[str]:
+        return [CAM_IMAGE]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [IMG_ANGLE_ZONE]

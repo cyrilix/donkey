@@ -6,16 +6,27 @@ Created on Sun Jun 25 10:44:24 2017
 @author: wroscoe
 """
 import logging
-import time
+from abc import ABC, abstractmethod
 from threading import Thread
+from typing import Any, Dict
 
+import time
+
+from donkeycar.parts.part import Part, ThreadedPart
 from .memory import Memory
 
 logger = logging.getLogger(__name__)
 
 
-class Vehicle():
-    def __init__(self, mem=None):
+class MetricsPublisher(ABC):
+
+    @abstractmethod
+    def publish(self, values: Dict[str, Any]):
+        pass
+
+
+class Vehicle:
+    def __init__(self, mem=None, metrics_publisher: MetricsPublisher = None):
 
         if not mem:
             mem = Memory()
@@ -23,6 +34,14 @@ class Vehicle():
         self.parts = []
         self.on = True
         self.threads = []
+        self.metrics_publisher = metrics_publisher
+
+    def register(self, part: Part, run_condition=None):
+        self.add(part=part,
+                 inputs=part.get_inputs_keys(),
+                 outputs=part.get_outputs_keys(),
+                 threaded=isinstance(part, ThreadedPart),
+                 run_condition=run_condition)
 
     def add(self, part, inputs=[], outputs=[],
             threaded=False, run_condition=None):
@@ -40,7 +59,7 @@ class Vehicle():
         """
 
         p = part
-        logger.info('Adding part %s.', p.__class__.__name__)
+        logger.info('Adding part %s with inputs: %s and outputs: %s.', p.__class__.__name__, inputs, outputs)
         entry = {}
         entry['part'] = p
         entry['inputs'] = inputs
@@ -92,6 +111,7 @@ class Vehicle():
                 loop_count += 1
 
                 self.update_parts()
+                self._publish_metrics()
 
                 # stop drive loop if loop_count exceeds max_loopcount
                 if max_loop_count and loop_count > max_loop_count:
@@ -141,3 +161,8 @@ class Vehicle():
             except Exception as e:
                 logging.exception(e)
         logger.debug(self.mem.d)
+
+    def _publish_metrics(self):
+        if self.metrics_publisher:
+            metrics = dict([x for x in self.mem.d.items() if isinstance(x[0], str) and not x[0].startswith('_')])
+            self.metrics_publisher.publish(metrics)

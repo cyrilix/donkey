@@ -7,7 +7,36 @@ from imutils import contours
 from numpy.core.multiarray import ndarray
 from paho.mqtt.client import Client, MQTTMessage
 
+from donkeycar.parts.camera import CAM_IMAGE
 from donkeycar.parts.mqtt import MqttController
+from donkeycar.parts.part import Part
+
+CENTROIDS = 'centroids'
+
+IMG_CONTOURS = 'img/contours'
+
+CFG_THREHOLD_VALUE_ESTIMATOR_CENTROID_VALUE = 'cfg/threshold_value_estimator/centroid_value'
+
+IMG_PROCESSED = 'img/processed'
+
+IMG_GRAY = 'img/gray'
+
+CFG_THRESHOLD_FROM_LINE = 'cfg/threshold/from_line'
+
+CFG_THRESHOLD_DYNAMIC_DELTA = 'cfg/threshold/dynamic/delta'
+
+CFG_THRESHOLD_DYNAMIC_DEFAULT = 'cfg/threshold/dynamic/default'
+
+CFG_THRESHOLD_DYNAMIC_ENABLED = 'cfg/threshold/dynamic/enabled'
+
+CFG_THRESHOLD_LIMIT_MAX = 'cfg/threshold/limit/max'
+
+CFG_THRESHOLD_LIMIT_MIN = 'cfg/threshold/limit/min'
+
+CFG_CONTOURS_ARC_LENGTH_MAX = 'cfg/contours/arc_length_max'
+CFG_CONTOURS_ARC_LENGTH_MIN = 'cfg/contours/arc_length_min'
+CFG_CONTOURS_POLY_DP_MAX = 'cfg/contours/poly_dp_max'
+CFG_CONTOURS_POLY_DP_MIN = 'cfg/contours/poly_dp_min'
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +68,15 @@ class ContoursConfigController(MqttController):
             * cfg/contours/arc_length_max
         """
         return self.poly_dp_min, self.poly_dp_max, self.arc_length_min, self.arc_length_max
+
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [CFG_CONTOURS_POLY_DP_MIN,
+                CFG_CONTOURS_POLY_DP_MAX,
+                CFG_CONTOURS_ARC_LENGTH_MIN,
+                CFG_CONTOURS_ARC_LENGTH_MAX]
 
 
 def _on_contours_config_message(client: Client, userdata: ContoursConfigController, msg: MQTTMessage):
@@ -144,8 +182,18 @@ class ThresholdConfigController(MqttController):
         return self.limit_min, self.limit_max, \
                self.dynamic_enabled, self.dynamic_default, self.dynamic_delta
 
+    def get_inputs_keys(self) -> List[str]:
+        return [CFG_THRESHOLD_FROM_LINE]
 
-class ThresholdController:
+    def get_outputs_keys(self) -> List[str]:
+        return [CFG_THRESHOLD_LIMIT_MIN,
+                CFG_THRESHOLD_LIMIT_MAX,
+                CFG_THRESHOLD_DYNAMIC_ENABLED,
+                CFG_THRESHOLD_DYNAMIC_DEFAULT,
+                CFG_THRESHOLD_DYNAMIC_DELTA]
+
+
+class ThresholdController(Part):
     """
     Apply threshold process to gray images
     """
@@ -154,9 +202,6 @@ class ThresholdController:
         self._config = config
         self._crop_from_top = 20
         self._video_frame = None
-
-    def shutdown(self):
-        pass
 
     def run(self, image_gray: ndarray) -> ndarray:
         try:
@@ -172,6 +217,12 @@ class ThresholdController:
         (_, binary_min) = cv2.threshold(img.copy(), self._config.limit_min, 255, 0, cv2.THRESH_BINARY)
         (_, binary_max) = cv2.threshold(img.copy(), self._config.limit_max, 255, 0, cv2.THRESH_BINARY_INV)
         return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
+
+    def get_inputs_keys(self) -> List[str]:
+        return [IMG_GRAY]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [IMG_PROCESSED]
 
 
 class ThresholdValueEstimatorConfig(MqttController):
@@ -192,6 +243,12 @@ class ThresholdValueEstimatorConfig(MqttController):
         """
         return self.centroid_value
 
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [CFG_THREHOLD_VALUE_ESTIMATOR_CENTROID_VALUE]
+
 
 def on_message_threshold_value_estimator(client: Client, userdata: ThresholdValueEstimatorConfig, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
@@ -203,7 +260,7 @@ def on_message_threshold_value_estimator(client: Client, userdata: ThresholdValu
         logger.warning("Unexpected msg for topic %s", msg.topic)
 
 
-class ThresholdValueEstimator:
+class ThresholdValueEstimator(Part):
     """
     Threshold estimation on gray image. Use near centroid to find pixel value
     """
@@ -213,9 +270,6 @@ class ThresholdValueEstimator:
         self._config = config
         self._video_frame = None
         self._contours_detector = contours_detector
-
-    def shutdown(self):
-        pass
 
     def run(self, img_gray: ndarray) -> int:
         try:
@@ -245,6 +299,12 @@ class ThresholdValueEstimator:
         self._video_frame = img_debug
         return img_debug
 
+    def get_inputs_keys(self) -> List[str]:
+        return [IMG_GRAY]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [CFG_THRESHOLD_FROM_LINE]
+
 
 def _on_threshold_config_message(client: Client, userdata: ThresholdConfigController, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
@@ -273,30 +333,30 @@ def _on_threshold_config_message(client: Client, userdata: ThresholdConfigContro
         logger.warning("Unexpected msg for topic %s", msg.topic)
 
 
-class ConvertToGrayPart:
+class ConvertToGrayPart(Part):
     """
     Convert color image to gray
     """
 
-    @staticmethod
-    def run(image_array: ndarray) -> ndarray:
+    def run(self, image_array: ndarray) -> ndarray:
         try:
             return cv2.cvtColor(image_array.copy(), cv2.COLOR_RGB2GRAY)
         except Exception:
             logging.exception("Unexpected error")
             return numpy.zeros(image_array.shape)
 
-    def shutdown(self):
-        pass
+    def get_inputs_keys(self) -> List[str]:
+        return [CAM_IMAGE]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [IMG_GRAY]
 
 
-class ContourController:
+class ContourController(Part):
+
     def __init__(self, contours_detector: ContoursDetector):
         self._video_frame = None
         self._contours_detector = contours_detector
-
-    def shutdown(self):
-        pass
 
     def run(self, image_array: ndarray) -> (ndarray, List[Centroid]):
         try:
@@ -322,3 +382,10 @@ class ContourController:
 
         logger.debug("Centroids founds: %s", centroids)
         return img, centroids
+
+    def get_inputs_keys(self) -> List[str]:
+        return [IMG_PROCESSED]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [IMG_CONTOURS,
+                CENTROIDS]

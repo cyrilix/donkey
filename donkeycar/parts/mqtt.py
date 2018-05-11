@@ -1,8 +1,9 @@
 import base64
 import json
 import logging
+from abc import abstractmethod
 from datetime import datetime
-from typing import Callable, Any
+from typing import Callable, Any, List, Dict
 
 import numpy
 import requests
@@ -11,6 +12,10 @@ from paho.mqtt import client as mqtt
 from paho.mqtt.client import Client, MQTTMessage
 
 from donkeycar import utils
+from donkeycar.parts.part import Part
+from donkeycar.vehicle import MetricsPublisher
+
+USER_MODE = 'user/mode'
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +27,14 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-class MqttPart:
-    def __init__(self, inputs, input_types, topic='car', hostname='localhost', port=1883,
+class MqttMetricsPublisher(MetricsPublisher):
+
+    def __init__(self, topic='car', hostname='localhost', port=1883,
                  client_id="parts_publish", username=None, password=None, qos=1, publish_all_events=True):
         self._qos = qos
         self._previous_mode = None
         self.record_time = 0
-        self._input_types = input_types
         self.start_time = time.time()
-        self._inputs = inputs
         self._reset_tub_name()
 
         self._mqtt_client = mqtt.Client(client_id=client_id + "-", clean_session=False, userdata=None,
@@ -47,21 +51,22 @@ class MqttPart:
 
         Accepts values, pairs them with their inputs keys and send them to mqtt broker.
         """
-        assert len(self._input_types) == len(args)
-
-        self.record_time = int(time.time() - self.start_time)
         record = dict(zip(self._inputs, args))
+        self.publish(record)
+
+    def publish(self, record):
+        self.record_time = int(time.time() - self.start_time)
         self._send_record(record)
 
     def _send_record(self, data):
         json_data = {}
         self._current_idx += 1
 
-        if not self._publish_all_events and "user/mode" not in data:
-            logger.warning("'user/mode' part not defined")
+        if not self._publish_all_events and USER_MODE not in data:
+            logger.warning("'%s' part not defined", USER_MODE)
             return
 
-        user_mode = data["user/mode"]
+        user_mode = data[USER_MODE]
         if user_mode != self._previous_mode:
             self._reset_tub_name()
             self._previous_mode = user_mode
@@ -71,26 +76,25 @@ class MqttPart:
             return
 
         for key, val in data.items():
-            typ = self._input_types.get(key)
 
-            if typ in ['str', 'float', 'int', 'boolean', 'list']:
-                json_data[key] = val
-            elif typ is 'tuple':
+            if isinstance(val, tuple):
                 json_data[key] = list(val)
-            elif typ is 'image':
+            elif isinstance(val, bytes):
                 name = self.make_file_name(key, ext='.jpg')
                 message = self._build_image_message(image_name=name, img_content=val, part=key)
                 json_data[key] = name
                 self._publish(message, topic=self._topic + "/image/" + key)
-            elif typ == 'image_array':
+            elif isinstance(val, numpy.ndarray):
                 img_content = utils.arr_to_binary(val)
                 name = self.make_file_name(key, ext='.jpg')
                 message = self._build_image_message(image_name=name, img_content=img_content, part=key)
                 json_data[key] = name
                 self._publish(message, topic=self._topic + "/image/" + key)
+            elif not val or isinstance(val, (str, float, int, bool, list)):
+                json_data[key] = val
 
             else:
-                logger.warning('Tub does not know what to do with this type %s for key %s', typ, key)
+                logger.warning('Tub does not know what to do with this for key %s: %s', key, val)
                 return
         msg = {
             'content_type': 'application/json',
@@ -103,7 +107,7 @@ class MqttPart:
         }
         self._publish(message=msg, topic=self._topic + '/parts')
 
-    def _build_image_message(self, image_name, part, img_content):
+    def _build_image_message(self, image_name, part, img_content: bytes) -> Dict[str, Any]:
         return {'payload': base64.standard_b64encode(img_content).decode('utf-8'),
                 'content_type': 'image/jpeg',
                 'application_headers': {
@@ -135,7 +139,7 @@ class MqttPart:
         self._current_idx = 0
 
 
-class MqttController:
+class MqttController(Part):
     def __init__(self, mqtt_client_id: str, mqtt_enable: bool, mqtt_hostname: str, mqtt_password: str, mqtt_port: int,
                  mqtt_qos: int, mqtt_topic: str, mqtt_username: str,
                  on_message: Callable[[Client, Any, MQTTMessage], None]):
@@ -159,6 +163,14 @@ class MqttController:
         if self._mqtt_client:
             self._mqtt_client.loop_stop()
             self._mqtt_client.disconnect()
+
+    @abstractmethod
+    def get_inputs_keys(self) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_outputs_keys(self) -> List[str]:
+        pass
 
 
 def _on_connect(client: Client, userdata: MqttController, flags, rc: int):
@@ -184,6 +196,12 @@ class MqttDrive(MqttController):
         * user/mode
         """
         return self.user_mode
+
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [USER_MODE]
 
 
 def on_drive_message(client: Client, userdata: MqttDrive, msg: MQTTMessage):

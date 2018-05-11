@@ -1,24 +1,34 @@
 # -*- coding: utf-8 -*-
+from typing import List
 
 import time
 
-class Lambda:
+from donkeycar.parts.part import Part
+
+
+class Lambda(Part):
     """
     Wraps a function into a donkey part.
     """
-    def __init__(self, f):
+
+    def __init__(self, f, inputs: List[str] = None, outputs: List[str] = None):
         """
         Accepts the function to use.
         """
+        if inputs is None:
+            inputs = []
+        self.inputs = inputs
+        self.outputs = outputs
         self.f = f
-        
+
     def run(self, *args, **kwargs):
         return self.f(*args, **kwargs)
-    
-    def shutdown(self):
-        return
 
+    def get_inputs_keys(self) -> List[str]:
+        return self.inputs
 
+    def get_outputs_keys(self) -> List[str]:
+        return self.outputs
 
 
 class PIDController:

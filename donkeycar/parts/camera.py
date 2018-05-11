@@ -1,11 +1,16 @@
 import glob
 import logging
 import os
-import time
+from typing import List
 
 import cv2
 import numpy as np
+import time
 from PIL import Image
+
+from donkeycar.parts.part import ThreadedPart
+
+CAM_IMAGE = 'cam/image_array'
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +21,8 @@ class BaseCamera:
         return self.frame
 
 
-class PiCamera(BaseCamera):
+class PiCamera(BaseCamera, ThreadedPart):
+
     def __init__(self, resolution=(120, 160), framerate=20, rotation=0):
         from picamera.array import PiRGBArray
         from picamera import PiCamera
@@ -64,6 +70,12 @@ class PiCamera(BaseCamera):
         self.stream.close()
         self.rawCapture.close()
         self.camera.close()
+
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [CAM_IMAGE]
 
 
 class WebcamCV(BaseCamera):
@@ -168,10 +180,10 @@ class MockCamera(BaseCamera):
         pass
 
 
-class ImageListCamera(BaseCamera):
-    '''
+class ImageListCamera(BaseCamera, ThreadedPart):
+    """
     Use the images from a tub as a fake camera output
-    '''
+    """
 
     def __init__(self, path_mask='~/d2/data/**/*.jpg'):
         self.image_filenames = glob.glob(os.path.expanduser(path_mask), recursive=True)
@@ -205,5 +217,8 @@ class ImageListCamera(BaseCamera):
 
         return np.asarray(self.frame)
 
-    def shutdown(self):
-        pass
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [CAM_IMAGE]

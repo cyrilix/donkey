@@ -35,12 +35,11 @@ class Satanas(BaseVehicle):
                                zero_pulse=cfg.THROTTLE_STOPPED_PWM,
                                min_pulse=cfg.THROTTLE_REVERSE_PWM)
 
-        self.add(steering, inputs=['angle'])
-        self.add(throttle, inputs=['throttle'])
+        self.register(steering)
+        self.register(throttle)
 
     def _configure_camera(self, cfg):
-        cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION)
-        self.add(cam, outputs=['cam/image_array'], threaded=True)
+        self.register(PiCamera(resolution=cfg.CAMERA_RESOLUTION))
 
 
 if __name__ == '__main__':

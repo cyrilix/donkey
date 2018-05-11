@@ -5,12 +5,22 @@ are wrapped in a mixer class before being used in the drive loop.
 """
 import logging
 from math import floor
+from typing import List, Tuple
+
+try:
+    import RPi.GPIO as GPIO
+    import wiringpi
+except ModuleNotFoundError as e:
+    pass
 
 import time
-import RPi.GPIO as GPIO
-import wiringpi
 
 import donkeycar as dk
+from donkeycar.parts.part import Part
+
+THROTTLE = 'throttle'
+
+ANGLE = 'angle'
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +45,11 @@ class PCA9685:
         self.set_pulse(pulse)
 
 
-class PWMSteering:
+class PWMSteering(Part):
     """
     Wrapper over a PWM motor cotnroller to convert angles to PWM pulses.
     """
+
     LEFT_ANGLE = -1
     RIGHT_ANGLE = 1
 
@@ -60,12 +71,19 @@ class PWMSteering:
     def shutdown(self):
         self.run(0)  # set steering straight
 
+    def get_inputs_keys(self) -> List[str]:
+        return [ANGLE]
 
-class PWMThrottle:
+    def get_outputs_keys(self) -> List[Tuple[str, str]]:
+        return []
+
+
+class PWMThrottle(Part):
     """
     Wrapper over a PWM motor cotnroller to convert -1 to 1 throttle
     values to PWM pulses.
     """
+
     MIN_THROTTLE = -1
     MAX_THROTTLE = 1
 
@@ -98,8 +116,14 @@ class PWMThrottle:
     def shutdown(self):
         self.run(0)  # stop vehicle
 
+    def get_inputs_keys(self) -> List[str]:
+        return [THROTTLE]
 
-class GpioMotor:
+    def get_outputs_keys(self) -> List[Tuple[str, str]]:
+        return []
+
+
+class GpioMotor(Part):
     """
     Soft PWM control
     Used on a differential drive car.
@@ -133,8 +157,7 @@ class GpioMotor:
         wiringpi.softPwmCreate(self.IN4, 0, pwm_range)
         self.max_pulse = pwm_range
 
-    def run(self, throttle, angle=0.0):
-
+    def run(self, throttle: float, angle=0.0):
         straight_pulse = self.max_pulse * abs(throttle)
         if angle < 0.0:
             left_pulse = floor(straight_pulse * (1 - abs(angle)))
@@ -144,7 +167,7 @@ class GpioMotor:
             right_pulse = floor(straight_pulse * (1 - angle))
 
         logger.debug(
-            "angle {0:>+4.2f} | throttle {1:>+4.2f} | L pulse {2:>4d} | R pulse {3:>4d}".format(angle, throttle,
+            "angle {0:>+4.2f} | throttle {1:>+4.2f} | L pulse {2:>4f} | R pulse {3:>4f}".format(angle, throttle,
                                                                                                 left_pulse,
                                                                                                 right_pulse))
 
@@ -187,6 +210,12 @@ class GpioMotor:
     def shutdown(self):
         self._stop()
         GPIO.cleanup()
+
+    def get_inputs_keys(self) -> List[str]:
+        return [THROTTLE, ANGLE]
+
+    def get_outputs_keys(self) -> List[str]:
+        return []
 
 
 class Adafruit_DCMotor_Hat:

@@ -4,33 +4,34 @@ utils.py
 Functions that don't fit anywhere else.
 
 '''
-from io import BytesIO
-import os
 import glob
-import socket
-import zipfile
-import sys
 import itertools
+import os
+import socket
 import subprocess
+import sys
+import zipfile
+from io import BytesIO
 
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 '''
 IMAGES
 '''
 
+
 def scale(im, size=128):
     '''
     accepts: PIL image, size of square sides
-    returns: PIL image scaled so sides lenght = size 
+    returns: PIL image scaled so sides lenght = size
     '''
-    size = (size,size)
+    size = (size, size)
     im.thumbnail(size, Image.ANTIALIAS)
     return im
 
 
-def img_to_binary(img):
+def img_to_binary(img: Image) -> bytes:
     '''
     accepts: PIL image
     returns: binary stream (used to save to database)
@@ -40,7 +41,7 @@ def img_to_binary(img):
     return f.getvalue()
 
 
-def arr_to_binary(arr):
+def arr_to_binary(arr: np.ndarray) -> bytes:
     '''
     accepts: numpy array with shape (Hight, Width, Channels)
     returns: binary stream (used to save to database)
@@ -49,7 +50,7 @@ def arr_to_binary(arr):
     return img_to_binary(img)
 
 
-def arr_to_img(arr):
+def arr_to_img(arr: np.ndarray) -> Image:
     '''
     accepts: numpy array with shape (Hight, Width, Channels)
     returns: binary stream (used to save to database)
@@ -57,6 +58,7 @@ def arr_to_img(arr):
     arr = np.uint8(arr)
     img = Image.fromarray(arr)
     return img
+
 
 def img_to_arr(img):
     '''
@@ -76,7 +78,7 @@ def binary_to_img(binary):
 
 
 def norm_img(img):
-    return (img - img.mean() / np.std(img))/255.0
+    return (img - img.mean() / np.std(img)) / 255.0
 
 
 def create_video(img_dir_path, output_video_path):
@@ -94,15 +96,6 @@ def create_video(img_dir_path, output_video_path):
                -y
                %s""" % (full_path, output_video_path))
     response = envoy.run(command)
-
-
-
-
-
-
-
-
-
 
 
 '''
@@ -127,11 +120,11 @@ def make_dir(path):
 
 
 def zip_dir(dir_path, zip_path):
-    """ 
+    """
     Create and save a zipfile of a one level directory
     """
-    file_paths = glob.glob(dir_path + "/*") #create path to search for files.
-    
+    file_paths = glob.glob(dir_path + "/*")  # create path to search for files.
+
     zf = zipfile.ZipFile(zip_path, 'w')
     dir_name = os.path.basename(dir_path)
     for p in file_paths:
@@ -141,16 +134,15 @@ def zip_dir(dir_path, zip_path):
     return zip_path
 
 
-
-
 '''
 BINNING
 functions to help converte between floating point numbers and categories.
 '''
 
+
 def linear_bin(a):
     a = a + 1
-    b = round(a / (2/14))
+    b = round(a / (2 / 14))
     arr = np.zeros(15)
     arr[int(b)] = 1
     return arr
@@ -158,7 +150,7 @@ def linear_bin(a):
 
 def linear_unbin(arr):
     b = np.argmax(arr)
-    a = b *(2/14) - 1
+    a = b * (2 / 14) - 1
     return a
 
 
@@ -168,32 +160,34 @@ def bin_Y(Y):
         arr = np.zeros(15)
         arr[linear_bin(y)] = 1
         d.append(arr)
-    return np.array(d) 
-        
+    return np.array(d)
+
+
 def unbin_Y(Y):
-    d=[]
+    d = []
     for y in Y:
         v = linear_unbin(y)
         d.append(v)
     return np.array(d)
 
+
 def map_range(x, X_min, X_max, Y_min, Y_max):
-    ''' 
-    Linear mapping between two ranges of values 
+    '''
+    Linear mapping between two ranges of values
     '''
     X_range = X_max - X_min
     Y_range = Y_max - Y_min
-    XY_ratio = X_range/Y_range
+    XY_ratio = X_range / Y_range
 
-    y = ((x-X_min) / XY_ratio + Y_min) // 1
+    y = ((x - X_min) / XY_ratio + Y_min) // 1
 
     return int(y)
-
 
 
 '''
 NETWORKING
 '''
+
 
 def my_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -201,11 +195,11 @@ def my_ip():
     return s.getsockname()[0]
 
 
-
-
 '''
 OTHER
 '''
+
+
 def merge_two_dicts(x, y):
     """Given two dicts, merge them into a new dict as a shallow copy."""
     z = x.copy()
@@ -213,14 +207,13 @@ def merge_two_dicts(x, y):
     return z
 
 
-
 def param_gen(params):
     '''
-    Accepts a dictionary of parameter options and returns 
+    Accepts a dictionary of parameter options and returns
     a list of dictionary with the permutations of the parameters.
     '''
     for p in itertools.product(*params.values()):
-        yield dict(zip(params.keys(), p ))
+        yield dict(zip(params.keys(), p))
 
 
 def run_shell_command(cmd, cwd=None, timeout=15):
@@ -240,6 +233,7 @@ def run_shell_command(cmd, cwd=None, timeout=15):
         err.append(line)
     return out, err, proc.pid
 
+
 '''
 def kill(proc_pid):
     process = psutil.Process(proc_pid)
@@ -249,16 +243,13 @@ def kill(proc_pid):
 '''
 import signal
 
+
 def kill(proc_id):
     os.kill(proc_id, signal.SIGINT)
 
 
-
-
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
-
-
 
 
 def expand_path_mask(path):
@@ -277,4 +268,3 @@ def expand_path_arg(path_str):
         paths = expand_path_mask(path)
         expanded_paths += paths
     return expanded_paths
-

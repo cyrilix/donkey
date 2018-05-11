@@ -24,11 +24,10 @@ logger = logging.getLogger(__name__)
 class Diabolo(BaseVehicle):
 
     def _configure_car_hardware(self, cfg):
-        self.add(GpioMotor(), inputs=['throttle', 'angle'])
+        self.register(GpioMotor())
 
     def _configure_camera(self, cfg):
-        cam = PiCamera(resolution=cfg.CAMERA_RESOLUTION, rotation=180)
-        self.add(cam, outputs=['cam/image_array'], threaded=True)
+        self.register(PiCamera(resolution=cfg.CAMERA_RESOLUTION, rotation=180))
 
     def _configure_arduino(self, cfg):
         pass

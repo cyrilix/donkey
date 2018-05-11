@@ -13,8 +13,7 @@ class MalabilleCar(BaseVehicle):
         pass
 
     def _configure_camera(self, cfg):
-        camera = ImageListCamera(path_mask='test_parts/*.jpg')
-        self.add(camera, outputs=['cam/image_array'], threaded=True)
+        self.register(ImageListCamera(path_mask='test_parts/*.jpg'))
 
     def _configure_arduino(self, cfg):
         pass

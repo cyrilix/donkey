@@ -12,14 +12,24 @@ The client and web server needed to control a car remotely.
 import json
 import logging
 import os
-import time
+from typing import List
 
 import requests
+import time
 import tornado.gen
 import tornado.ioloop
 import tornado.web
 
+from donkeycar.parts.camera import CAM_IMAGE
+from donkeycar.parts.mqtt import USER_MODE
+from donkeycar.parts.part import ThreadedPart
 from ... import utils
+
+RECORDING = 'recording'
+
+USER_THROTTLE = 'user/throttle'
+
+USER_ANGLE = 'user/angle'
 
 logger = logging.getLogger(__name__)
 
@@ -93,13 +103,13 @@ class RemoteWebServer():
         return angle, throttle, drive_mode, recording
 
 
-class LocalWebController(tornado.web.Application):
+class LocalWebController(tornado.web.Application, ThreadedPart):
 
     def __init__(self):
-        '''
+        """
         Create and publish variables needed on many of
         the web handlers.
-        '''
+        """
 
         logger.info('Starting Donkey Server...')
 
@@ -123,7 +133,7 @@ class LocalWebController(tornado.web.Application):
         super().__init__(handlers, **settings)
 
     def update(self, port=8887):
-        ''' Start the tornado webserver. '''
+        """ Start the tornado webserver. """
         print(port)
         self.port = int(port)
         self.listen(self.port)
@@ -137,8 +147,11 @@ class LocalWebController(tornado.web.Application):
         self.img_arr = img_arr
         return self.angle, self.throttle, self.mode, self.recording
 
-    def shutdown(self):
-        pass
+    def get_inputs_keys(self) -> List[str]:
+        return [CAM_IMAGE]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [USER_ANGLE, USER_THROTTLE, USER_MODE, RECORDING]
 
 
 class DriveAPI(tornado.web.RequestHandler):

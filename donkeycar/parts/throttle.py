@@ -3,7 +3,12 @@ from typing import List
 
 from paho.mqtt.client import Client, MQTTMessage
 
+from donkeycar.parts.angle import PILOT_ANGLE
+from donkeycar.parts.arduino import SHOCK
 from donkeycar.parts.mqtt import MqttController
+from donkeycar.parts.part import Part
+
+PILOT_THROTTLE = 'pilot/throttle'
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +43,10 @@ class ThrottleConfigController(MqttController):
         return self.use_steering, self.min_speed, self.max_speed, self.safe_angle, self.dangerous_angle, \
                self.stop_on_shock
 
-    @staticmethod
-    def get_outputs_name_parts() -> List[str]:
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
         return ['cfg/throttle/compute_from_steering',
                 'cfg/throttle/min',
                 'cfg/throttle/max',
@@ -80,14 +87,11 @@ def _on_throttle_config_message(client: Client, userdata: ThrottleConfigControll
         logger.warning("Unexpected msg for topic %s", msg.topic)
 
 
-class ThrottleControllerFixedSpeed:
+class ThrottleControllerFixedSpeed(Part):
 
     def __init__(self, throttle_config_controller: ThrottleConfigController):
         self._throttle_config_controller = throttle_config_controller
         self._shock = False
-
-    def shutdown(self):
-        pass
 
     def run(self, shock: bool = False) -> float:
         if not self._throttle_config_controller.stop_on_shock:
@@ -102,8 +106,14 @@ class ThrottleControllerFixedSpeed:
         else:
             return self._throttle_config_controller.min_speed
 
+    def get_inputs_keys(self) -> List[str]:
+        return [SHOCK]
 
-class ThrottleControllerSteeringBased:
+    def get_outputs_keys(self) -> List[str]:
+        return [PILOT_THROTTLE]
+
+
+class ThrottleControllerSteeringBased(Part):
     """
     Implementation of throttle controller using steering value
     """
@@ -111,9 +121,6 @@ class ThrottleControllerSteeringBased:
     def __init__(self, throttle_config_controller: ThrottleConfigController):
         self._throttle_config_controller = throttle_config_controller
         self._shock = False
-
-    def shutdown(self):
-        pass
 
     def run(self, angle: float, shock: bool) -> float:
         if self._throttle_config_controller.stop_on_shock:
@@ -139,8 +146,14 @@ class ThrottleControllerSteeringBased:
         speed_interv = max_speed - min_speed
         return round((abs(angle) * speed_interv) + min_speed, 2)
 
+    def get_inputs_keys(self) -> List[str]:
+        return [PILOT_ANGLE, SHOCK]
 
-class ThrottleController:
+    def get_outputs_keys(self) -> List[str]:
+        return [PILOT_THROTTLE]
+
+
+class ThrottleController(Part):
 
     def __init__(self, throttle_config_controller: ThrottleConfigController,
                  fix_controller: ThrottleControllerFixedSpeed,
@@ -161,3 +174,9 @@ class ThrottleController:
     def shutdown(self):
         self.fix_controller.shutdown()
         self.steering_controller.shutdown()
+
+    def get_inputs_keys(self) -> List[str]:
+        return [PILOT_ANGLE, SHOCK]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [PILOT_THROTTLE]

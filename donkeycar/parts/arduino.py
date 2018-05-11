@@ -1,11 +1,20 @@
 import logging
+from typing import List
 
 import serial
+
+from donkeycar.parts.part import ThreadedPart
+
+SHOCK = 'shock'
+
+RAW_THROTTLE = 'raw/throttle'
+
+RAW_STEERING = 'raw/steering'
 
 logger = logging.getLogger(__name__)
 
 
-class SerialPart:
+class SerialPart(ThreadedPart):
 
     def __init__(self, port="/dev/ttyS0", baudrate=115200):
         self._serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
@@ -33,7 +42,18 @@ class SerialPart:
         self._shock = False
         return self._steering_raw, self._throttle_raw, shock
 
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [RAW_STEERING,
+                RAW_THROTTLE,
+                SHOCK]
+
     def shutdown(self):
         logger.info("Stop SerialPart")
         self._on = False
         self._serial.close()
+
+    def run(self, **kw):
+        pass
