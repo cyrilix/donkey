@@ -26,10 +26,7 @@ tests_require = ['pytest',
 setup(name='donkeycar',
       version='2.2.1',
       description='Self driving library for python.',
-      url='https://github.com/wroscoe/donkey',
-      download_url='https://github.com/wroscoe/donkey/archive/2.1.5.tar.gz',
-      author='Will Roscoe',
-      author_email='wroscoe@gmail.com',
+      url='https://github.com/cyrilix/donkey',
       license='MIT',
       entry_points={
           'console_scripts': [

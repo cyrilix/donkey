@@ -12,6 +12,9 @@ services:
       - type: bind
         source: ./data
         target:  /data
+      - type: bind
+        source: ./records
+        target:  /records
     environment:
       TZ: "Europe/Paris"
 
