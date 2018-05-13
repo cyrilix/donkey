@@ -15,6 +15,7 @@ CONTOURS_CENTROIDS = 'contours/centroids'
 CONTOURS_SHAPES = 'contours/shapes'
 
 IMG_CONTOURS = 'img/contours'
+IMG_HORIZON = 'img/horizon'
 
 CFG_THREHOLD_VALUE_ESTIMATOR_CENTROID_VALUE = 'cfg/threshold_value_estimator/centroid_value'
 
@@ -33,6 +34,8 @@ CFG_THRESHOLD_DYNAMIC_ENABLED = 'cfg/threshold/dynamic/enabled'
 CFG_THRESHOLD_LIMIT_MAX = 'cfg/threshold/limit/max'
 
 CFG_THRESHOLD_LIMIT_MIN = 'cfg/threshold/limit/min'
+
+CFG_THRESHOLD_HORIZON = 'cfg/threshold/horizon'
 
 CFG_CONTOURS_ARC_LENGTH_MAX = 'cfg/contours/arc_length_max'
 CFG_CONTOURS_ARC_LENGTH_MIN = 'cfg/contours/arc_length_min'
@@ -154,8 +157,8 @@ class ContoursDetector:
 class ThresholdConfigController(MqttController):
 
     def __init__(self, limit_min: int, limit_max: int, threshold_dynamic: bool, threshold_default: int,
-                 threshold_delta: int, mqtt_enable: bool = True,
-                 mqtt_topic: str = 'config/threshold/#', mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
+                 threshold_delta: int, horizon: float = 0, mqtt_enable=True, mqtt_topic: str = 'config/threshold/#',
+                 mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
                  mqtt_client_id: str = "donkey-config-threshold-", mqtt_username: str = None, mqtt_password: str = None,
                  mqtt_qos: int = 0):
         super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
@@ -165,8 +168,9 @@ class ThresholdConfigController(MqttController):
         self.dynamic_enabled = threshold_dynamic
         self.dynamic_default = threshold_default
         self.dynamic_delta = threshold_delta
+        self.horizon = horizon
 
-    def run(self, threshold_from_line: int) -> (int, int, bool, int, int):
+    def run(self, threshold_from_line: int) -> (int, int, bool, int, int, float):
         """
         :return: parts
             * cfg/threshold/limit/min
@@ -174,13 +178,14 @@ class ThresholdConfigController(MqttController):
             * cfg/threshold/dynamic/enabled
             * cfg/threshold/dynamic/default
             * cfg/threshold/dynamic/delta
+            * cfg/threshold/horizon
         """
         if self.dynamic_enabled:
             self.dynamic_default = threshold_from_line
             self.limit_min = self.dynamic_default - self.dynamic_delta
             self.limit_max = self.dynamic_default + self.dynamic_delta
 
-        return self.limit_min, self.limit_max, self.dynamic_enabled, self.dynamic_default, self.dynamic_delta
+        return self.limit_min, self.limit_max, self.dynamic_enabled, self.dynamic_default, self.dynamic_delta, self.horizon
 
     def get_inputs_keys(self) -> List[str]:
         return [CFG_THRESHOLD_FROM_LINE]
@@ -190,7 +195,8 @@ class ThresholdConfigController(MqttController):
                 CFG_THRESHOLD_LIMIT_MAX,
                 CFG_THRESHOLD_DYNAMIC_ENABLED,
                 CFG_THRESHOLD_DYNAMIC_DEFAULT,
-                CFG_THRESHOLD_DYNAMIC_DELTA]
+                CFG_THRESHOLD_DYNAMIC_DELTA,
+                CFG_THRESHOLD_HORIZON]
 
 
 class ThresholdController(Part):
@@ -203,26 +209,39 @@ class ThresholdController(Part):
         self._crop_from_top = 20
         self._video_frame = None
 
-    def run(self, image_gray: ndarray) -> ndarray:
+    def run(self, image_gray: ndarray) -> (ndarray, ndarray):
         try:
-            img = self._threshold(image_gray)
+            img, img_horizon_debug = self._threshold(image_gray)
             self._video_frame = img
-            return img
+            return img, img_horizon_debug
         except Exception:
             import numpy
             logging.exception("Unexpected error")
-            return self._video_frame
+            return self._video_frame, self._video_frame
 
-    def _threshold(self, img: ndarray) -> ndarray:
-        (_, binary_min) = cv2.threshold(img.copy(), self._config.limit_min, 255, 0, cv2.THRESH_BINARY)
-        (_, binary_max) = cv2.threshold(img.copy(), self._config.limit_max, 255, 0, cv2.THRESH_BINARY_INV)
-        return cv2.bitwise_xor(src1=binary_min, src2=binary_max)
+    def _threshold(self, img: ndarray) -> (ndarray, ndarray):
+        img_horizon, img_debug = self._apply_horizon(img)
+        (_, binary_min) = cv2.threshold(img_horizon.copy(), self._config.limit_min, 255, 0, cv2.THRESH_BINARY)
+        (_, binary_max) = cv2.threshold(img_horizon.copy(), self._config.limit_max, 255, 0, cv2.THRESH_BINARY_INV)
+        return cv2.bitwise_xor(src1=binary_min, src2=binary_max), img_debug
+
+    def _apply_horizon(self, img: ndarray):
+        horizon = int(img.shape[0] * self._config.horizon)
+        if horizon < 1:
+            return img.copy(), img.copy()
+
+        img_horizon = cv2.rectangle(img=img.copy(), pt1=(0, 0), pt2=(img.shape[1], horizon - 1),
+                                    thickness=cv2.FILLED, color=(0,))
+        img_debug = cv2.cvtColor(img.copy(), cv2.COLOR_GRAY2RGB)
+        img_debug = cv2.line(img=img_debug, pt1=(0, horizon - 1), pt2=(img.shape[1], horizon - 1),
+                             thickness=2, color=(0, 0, 250))
+        return img_horizon, img_debug
 
     def get_inputs_keys(self) -> List[str]:
         return [IMG_GRAY]
 
     def get_outputs_keys(self) -> List[str]:
-        return [IMG_PROCESSED]
+        return [IMG_PROCESSED, IMG_HORIZON]
 
 
 class ThresholdValueEstimatorConfig(MqttController):
@@ -329,6 +348,10 @@ def _on_threshold_config_message(_: Client, userdata: ThresholdConfigController,
         logger.info("Update threshold dynamic enabled from %s to %s (%s)", userdata.dynamic_enabled, new_value,
                     msg.payload)
         userdata.dynamic_enabled = new_value
+    elif msg.topic.endswith("threshold/horizon"):
+        new_value = float(msg.payload)
+        logger.info("Update threshold horizon from %s to %s (%s)", userdata.horizon, new_value, msg.payload)
+        userdata.horizon = new_value
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
 

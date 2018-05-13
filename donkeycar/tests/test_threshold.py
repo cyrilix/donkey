@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import pytest
 from paho.mqtt.client import Client
@@ -11,7 +13,7 @@ from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_cons
 def fixture_threshold_config_controller_static() -> ThresholdConfigController:
     return ThresholdConfigController(limit_min=150, limit_max=200,
                                      threshold_dynamic=False, threshold_default=160, threshold_delta=20,
-                                     mqtt_enable=False)
+                                     horizon=0.0, mqtt_enable=False)
 
 
 class TestThresholdController:
@@ -31,7 +33,7 @@ class TestThresholdController:
         for i in range(0, 256):
             img_gray[i] = np.ones(256) * i
 
-        img = threshold_controller.run(img_gray)
+        img, _ = threshold_controller.run(img_gray)
 
         for i in range(170):
             assert list(img[(i, ...)]) == list(np.zeros((256,)))
@@ -41,6 +43,27 @@ class TestThresholdController:
 
         for i in range(191, 256):
             assert list(img[i]) == list(np.zeros((256,)))
+
+    def test_threshold_horizon(self, threshold_controller: ThresholdController):
+        threshold_controller._config.limit_min = 170
+        threshold_controller._config.limit_max = 190
+        threshold_controller._config.horizon = 0.0
+
+        img_gray = np.ones((100, 256), dtype=np.uint8) * 180
+        img, _ = threshold_controller.run(img_gray)
+        for i in range(0, 100):
+            assert list(img[i]) == list(np.ones((256,)) * 255)
+
+        threshold_controller._config.horizon = 0.5
+
+        img, _ = threshold_controller.run(img_gray)
+
+        for i in range(0, 50):
+            assert list(img[i]) == list(np.zeros((256,)))
+
+        for i in range(50, 99):
+            logging.info(i)
+            assert list(img[i]) == list(np.ones((256,)) * 255)
 
 
 class TestThresholdValueEstimatorConfigController:
@@ -89,35 +112,34 @@ class TestThresholdConfigController:
         host = 'localhost'
         port = 1883
         wait_port_open(host=host, port=port)
-        config = ThresholdConfigController(limit_min=150, limit_max=200,
-                                           threshold_dynamic=True, threshold_default=160, threshold_delta=20,
-                                           mqtt_enable=True,
-                                           mqtt_hostname=host,
-                                           mqtt_port=port,
-                                           mqtt_qos=1,
-                                           mqtt_client_id='donkey-config-threshold-',
-                                           mqtt_topic='test/car/config/threshold/#')
+        config = ThresholdConfigController(limit_min=150, limit_max=200, threshold_dynamic=True,
+                                           threshold_default=160,
+                                           threshold_delta=20, horizon=0.0, mqtt_enable=True,
+                                           mqtt_topic='test/car/config/threshold/#', mqtt_hostname=host,
+                                           mqtt_port=port, mqtt_client_id='donkey-config-threshold-')
         yield config
         config.shutdown()
 
     def test_static_value(self, threshold_config_controller_static: ThresholdConfigController):
-        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_static.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta, horizon = threshold_config_controller_static.run(100)
         assert t_min == 150
         assert t_max == 200
         assert t_default == 160
+        assert horizon == 0.0
 
     def test_dynamic_value(self, threshold_config_controller_static: ThresholdConfigController):
         threshold_config_controller_static.dynamic_enabled = True
-        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_static.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta, horizon = threshold_config_controller_static.run(100)
         assert t_min == 80
         assert t_max == 120
         assert t_default == 100
         assert t_delta == 20
+        assert horizon == 0.0
 
     def test_modify_config_min_max_with_mqtt(self, threshold_config_controller_mqtt: ThresholdConfigController,
                                              mqtt_config: Client):
         threshold_config_controller_mqtt.dynamic_enabled = False
-        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta, horizon = threshold_config_controller_mqtt.run(100)
         assert t_min == 150
         assert t_max == 200
 
@@ -132,39 +154,40 @@ class TestThresholdConfigController:
         wait_all_mqtt_messages_consumed(
             f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
             f'qos{threshold_config_controller_mqtt.qos}')
-        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta, horizon = threshold_config_controller_mqtt.run(100)
         assert t_min == 200
         assert t_max == 220
 
     def test_modify_config_dynamic_with_mqtt(self, threshold_config_controller_mqtt: ThresholdConfigController,
                                              mqtt_config: Client):
         threshold_config_controller_mqtt.dynamic_enabled = False
-        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta, horizon = threshold_config_controller_mqtt.run(100)
         assert t_min == 150
         assert t_max == 200
         assert t_dynamic_enabled == False
         assert t_default == 160
         assert t_delta == 20
+        assert horizon == 0.0
 
         wait_all_mqtt_messages_consumed(f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
                                         f'qos{threshold_config_controller_mqtt.qos}')
 
-        msg = mqtt_config.publish(topic='test/car/config/threshold/default', payload="200", qos=1)
-        msg.wait_for_publish()
-        msg = mqtt_config.publish(topic='test/car/config/threshold/delta', payload="5", qos=1)
-        msg.wait_for_publish()
-        msg = mqtt_config.publish(topic='test/car/config/threshold/dynamic_enabled', payload="true", qos=1)
-        msg.wait_for_publish()
+        mqtt_config.publish(topic='test/car/config/threshold/default', payload="200", qos=1).wait_for_publish()
+        mqtt_config.publish(topic='test/car/config/threshold/delta', payload="5", qos=1).wait_for_publish()
+        mqtt_config.publish(topic='test/car/config/threshold/dynamic_enabled', payload="true",
+                            qos=1).wait_for_publish()
+        mqtt_config.publish(topic='test/car/config/threshold/horizon', payload="0.5", qos=1).wait_for_publish()
 
         wait_all_mqtt_messages_consumed(
             f'mqtt-subscription-{threshold_config_controller_mqtt._mqtt_client_id}'
             f'qos{threshold_config_controller_mqtt.qos}')
-        t_min, t_max, t_dynamic_enabled, t_default, t_delta = threshold_config_controller_mqtt.run(100)
+        t_min, t_max, t_dynamic_enabled, t_default, t_delta, horizon = threshold_config_controller_mqtt.run(100)
         assert t_min == 95
         assert t_max == 105
         assert t_dynamic_enabled == True
         assert t_default == 100
         assert t_delta == 5
+        assert horizon == 0.5
 
 
 class TestContoursConfigController:

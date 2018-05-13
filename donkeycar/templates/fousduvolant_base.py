@@ -150,9 +150,10 @@ class BaseVehicle(Vehicle):
         dynamic_enabled = cfg.THRESHOLD_DYNAMIC_ENABLE
         dynamic_default_threshold = cfg.THRESHOLD_DYNAMIC_INIT
         dynamic_delta = cfg.THRESHOLD_DYNAMIC_DELTA
+        horizon = cfg.THRESHOLD_HORIZON
         threshold_config = ThresholdConfigController(limit_min=limit_min, limit_max=limit_max,
                                                      threshold_dynamic=dynamic_enabled,
                                                      threshold_default=dynamic_default_threshold,
-                                                     threshold_delta=dynamic_delta)
+                                                     threshold_delta=dynamic_delta, horizon=horizon)
         self.register(threshold_config)
         self.register(ThresholdController(config=threshold_config))
