@@ -79,7 +79,7 @@ class ContoursConfigController(MqttController):
                 CFG_CONTOURS_ARC_LENGTH_MAX]
 
 
-def _on_contours_config_message(client: Client, userdata: ContoursConfigController, msg: MQTTMessage):
+def _on_contours_config_message(_: Client, userdata: ContoursConfigController, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("contours/poly_dp_min"):
         new_value = int(msg.payload)
@@ -179,8 +179,7 @@ class ThresholdConfigController(MqttController):
             self.limit_min = self.dynamic_default - self.dynamic_delta
             self.limit_max = self.dynamic_default + self.dynamic_delta
 
-        return self.limit_min, self.limit_max, \
-               self.dynamic_enabled, self.dynamic_default, self.dynamic_delta
+        return self.limit_min, self.limit_max, self.dynamic_enabled, self.dynamic_default, self.dynamic_delta
 
     def get_inputs_keys(self) -> List[str]:
         return [CFG_THRESHOLD_FROM_LINE]
@@ -250,7 +249,7 @@ class ThresholdValueEstimatorConfig(MqttController):
         return [CFG_THREHOLD_VALUE_ESTIMATOR_CENTROID_VALUE]
 
 
-def on_message_threshold_value_estimator(client: Client, userdata: ThresholdValueEstimatorConfig, msg: MQTTMessage):
+def on_message_threshold_value_estimator(_: Client, userdata: ThresholdValueEstimatorConfig, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("threshold_value_estimator/centroid_value"):
         new_value = int(msg.payload)
@@ -306,7 +305,7 @@ class ThresholdValueEstimator(Part):
         return [CFG_THRESHOLD_FROM_LINE]
 
 
-def _on_threshold_config_message(client: Client, userdata: ThresholdConfigController, msg: MQTTMessage):
+def _on_threshold_config_message(_: Client, userdata: ThresholdConfigController, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("threshold/min"):
         new_limit = int(msg.payload)

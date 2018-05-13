@@ -40,8 +40,7 @@ class ThrottleConfigController(MqttController):
             * cfg/throttle/stop_on_shock
         """
 
-        return self.use_steering, self.min_speed, self.max_speed, self.safe_angle, self.dangerous_angle, \
-               self.stop_on_shock
+        return self.use_steering, self.min_speed, self.max_speed, self.safe_angle, self.dangerous_angle, self.stop_on_shock
 
     def get_inputs_keys(self) -> List[str]:
         return []
@@ -55,7 +54,7 @@ class ThrottleConfigController(MqttController):
                 'cfg/throttle/stop_on_shock']
 
 
-def _on_throttle_config_message(client: Client, userdata: ThrottleConfigController, msg: MQTTMessage):
+def _on_throttle_config_message(_: Client, userdata: ThrottleConfigController, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
     if msg.topic.endswith("throttle/min"):
         new_value = float(msg.payload)
