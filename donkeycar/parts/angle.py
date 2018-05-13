@@ -9,15 +9,16 @@ from paho.mqtt.client import Client, MQTTMessage
 from donkeycar.parts.camera import CAM_IMAGE
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
-from donkeycar.parts.threshold import CENTROIDS
+from donkeycar.parts.threshold import CONTOURS_CENTROIDS, Shape, CONTOURS_SHAPES, IMG_CONTOURS
 
 IMG_ANGLE_ZONE = 'img/angle_zone'
+IMG_ANGLE_CONTOURS = 'img/angle_contours'
 
 CFG_ANGLE_CENTRAL_ZONE_PERCENT = 'cfg/angle/central_zone_percent'
 
 CFG_ANGLE_OUT_ZONE_PERCENT = 'cfg/angle/out_zone_percent'
 
-CFG_ANGLE_USE_ONLY_NEAR_CONTOUR = 'cfg/angle/use_only_near_contour'
+CFG_ANGLE_NUMBER_CENTROIDS_TO_USE = 'cfg/angle/number_centroids_to_use'
 
 PILOT_ANGLE = 'pilot/angle'
 
@@ -26,12 +27,42 @@ Centroid = Tuple[int, int]
 logger = logging.getLogger(__name__)
 
 
-def _on_angle_config_message(client: Client, userdata, msg: MQTTMessage):
+class AngleConfigController(MqttController):
+
+    def __init__(self, number_centroids_to_use=1, out_zone_percent=20, central_zone_percent=20,
+                 mqtt_enable: bool = True, mqtt_topic: str = 'config/angle/#', mqtt_hostname: str = 'localhost',
+                 mqtt_port: int = 1883, mqtt_client_id: str = "donkey-config-angle-", mqtt_username: str = None,
+                 mqtt_password: str = None, mqtt_qos: int = 0):
+        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
+                         mqtt_username, on_message=_on_angle_config_message)
+        self.number_centroids_to_use = number_centroids_to_use
+        self.out_zone_percent = out_zone_percent
+        self.central_zone_percent = central_zone_percent
+
+    def run(self) -> (int, int, int):
+        """
+        :return: parts
+            * cfg/angle/number_centroids_to_use
+            * cfg/angle/out_zone_percent
+            * cfg/angle/central_zone_percent
+        """
+        return self.number_centroids_to_use, self.out_zone_percent, self.central_zone_percent
+
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [CFG_ANGLE_NUMBER_CENTROIDS_TO_USE,
+                CFG_ANGLE_OUT_ZONE_PERCENT,
+                CFG_ANGLE_CENTRAL_ZONE_PERCENT]
+
+
+def _on_angle_config_message(_: Client, userdata: AngleConfigController, msg: MQTTMessage):
     logger.info('new message: %s', msg.topic)
-    if msg.topic.endswith("angle/use_only_near_contour"):
-        new_value = ("true" == msg.payload.decode('utf-8').lower())
-        logger.info("Update angle use_only_near_contour from %s to %s", userdata.use_only_near_contour, new_value)
-        userdata.use_only_near_contour = new_value
+    if msg.topic.endswith("angle/number_centroids_to_use"):
+        new_value = int(msg.payload)
+        logger.info("Update angle number centroids to use from %s to %s", userdata.number_centroids_to_use, new_value)
+        userdata.number_centroids_to_use = new_value
     elif msg.topic.endswith("angle/out_zone_percent"):
         new_value = int(msg.payload)
         logger.info("Update angle out_zone_percent from %s to %s", userdata.out_zone_percent, new_value)
@@ -42,36 +73,6 @@ def _on_angle_config_message(client: Client, userdata, msg: MQTTMessage):
         userdata.central_zone_percent = new_value
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
-
-
-class AngleConfigController(MqttController):
-
-    def __init__(self, use_only_near_contour=False, out_zone_percent=20, central_zone_percent=20,
-                 mqtt_enable: bool = True, mqtt_topic: str = 'config/angle/#', mqtt_hostname: str = 'localhost',
-                 mqtt_port: int = 1883, mqtt_client_id: str = "donkey-config-angle-", mqtt_username: str = None,
-                 mqtt_password: str = None, mqtt_qos: int = 0):
-        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                         mqtt_username, on_message=_on_angle_config_message)
-        self.use_only_near_contour = use_only_near_contour
-        self.out_zone_percent = out_zone_percent
-        self.central_zone_percent = central_zone_percent
-
-    def run(self) -> (bool, int, int):
-        """
-        :return: parts
-            * cfg/angle/use_only_near_contour
-            * cfg/angle/out_zone_percent
-            * cfg/angle/central_zone_percent
-        """
-        return self.use_only_near_contour, self.out_zone_percent, self.central_zone_percent
-
-    def get_inputs_keys(self) -> List[str]:
-        return []
-
-    def get_outputs_keys(self) -> List[str]:
-        return [CFG_ANGLE_USE_ONLY_NEAR_CONTOUR,
-                CFG_ANGLE_OUT_ZONE_PERCENT,
-                CFG_ANGLE_CENTRAL_ZONE_PERCENT]
 
 
 class AngleProcessorMiddleLine(Part):
@@ -104,20 +105,13 @@ class AngleProcessorMiddleLine(Part):
             logger.debug("None line found to process data")
             return self._last_value
 
-        if len(centroids) == 1:
-            angle = self._compute_angle_for_centroid(line=centroids[0][0])
-        else:
-            x_values = centroids[0][0]
-            nb_values = 1
+        nb_centroids = len(centroids)
+        if nb_centroids > self.angle_config_controller.number_centroids_to_use:
+            nb_centroids = self.angle_config_controller.number_centroids_to_use
 
-            if len(centroids) >= 2 and not self.angle_config_controller.use_only_near_contour:
-                x_values += centroids[1][0]
-                nb_values += 1
-
-            if len(centroids) >= 4 and not self.angle_config_controller.use_only_near_contour:
-                x_values += centroids[2][0]
-
-            angle = self._compute_angle_for_centroid(line=x_values / nb_values)
+        x_values = [x[0] for x in centroids[0:nb_centroids]]
+        weighted_mean_x = np.average(x_values, weights=range(nb_centroids + 1, 1, -1))
+        angle = self._compute_angle_for_centroid(line=weighted_mean_x)
 
         if angle < 0:
             self._last_value = -1
@@ -156,7 +150,7 @@ class AngleProcessorMiddleLine(Part):
         return angle
 
     def get_inputs_keys(self) -> List[str]:
-        return [CENTROIDS]
+        return [CONTOURS_CENTROIDS]
 
     def get_outputs_keys(self) -> List[str]:
         return [PILOT_ANGLE]
@@ -219,3 +213,56 @@ class AngleDebug(Part):
 
     def get_outputs_keys(self) -> List[str]:
         return [IMG_ANGLE_ZONE]
+
+
+class AngleContourDebug(Part):
+
+    def __init__(self, config: AngleConfigController):
+        self._config = config
+
+    def shutdown(self):
+        pass
+
+    def run(self, img: ndarray, shapes: List[Shape]) -> ndarray:
+        try:
+            img_debug = img.copy()
+            nb_contours = self._config.number_centroids_to_use
+            colors = self._get_colors_index(nb_contours)
+            for i in range(nb_contours):
+                cv2.drawContours(img_debug, shapes[i:i + 1], -1, colors[i], 2)
+            return img_debug
+        except:
+            logging.exception("Unexpected error")
+            return np.zeros(img.shape)
+
+    @staticmethod
+    def _get_colors_index(palette_size: int) -> List[Tuple[int, int, int]]:
+        max_blue = 250
+        min_blue = 150
+        delta_blue = int((max_blue - min_blue) / palette_size)
+
+        max_red = 100
+        min_red = 0
+        delta_red = int((max_red - min_red) / palette_size)
+
+        max_green = 150
+        min_green = 50
+        delta_green = int((max_green - min_green) / palette_size)
+
+        colors = []
+        red = min_red
+        green = max_green
+        blue = max_blue
+
+        for _ in range(palette_size):
+            colors.append((red, green, blue))
+            red = red + delta_red
+            green = green - delta_green
+            blue = blue - delta_blue
+        return colors
+
+    def get_inputs_keys(self) -> List[str]:
+        return [IMG_CONTOURS, CONTOURS_SHAPES]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [IMG_ANGLE_CONTOURS]

@@ -46,6 +46,33 @@ class TestAngleEstimatorMiddleLine:
         angle = angle_processor.run(centroids)
         assert angle == 1.0
 
+    def test_2_centroids_on_left(self, angle_processor: AngleProcessorMiddleLine):
+        centroids = [(30, 0), (40, 20)]
+        angle = angle_processor.run(centroids)
+        assert angle == -0.625
+
+        centroids.reverse()
+        angle = angle_processor.run(centroids)
+        assert angle == -0.5
+
+    def test_2_centroids_on_right(self, angle_processor: AngleProcessorMiddleLine):
+        centroids = [(90, 0), (100, 20)]
+        angle = angle_processor.run(centroids)
+        assert angle == 0.125
+
+        centroids.reverse()
+        angle = angle_processor.run(centroids)
+        assert angle == 0.25
+
+    def test_2_centroids_on_left_and_right(self, angle_processor: AngleProcessorMiddleLine):
+        centroids = [(60, 0), (100, 20)]
+        angle = angle_processor.run(centroids)
+        assert angle == -0.25
+
+        centroids.reverse()
+        angle = angle_processor.run(centroids)
+        assert angle == 0.25
+
 
 class TestAngleConfigController:
     @pytest.fixture(name='angle_config_controller')
@@ -54,13 +81,9 @@ class TestAngleConfigController:
         port = 1883
         wait_port_open(host=host, port=port)
 
-        angle_config = AngleConfigController(use_only_near_contour=True, out_zone_percent=10, central_zone_percent=20,
-                                             mqtt_enable=True,
-                                             mqtt_hostname=host,
-                                             mqtt_port=port,
-                                             mqtt_qos=1,
-                                             mqtt_client_id='donkey-config-angle-',
-                                             mqtt_topic='test/car/config/angle/#')
+        angle_config = AngleConfigController(out_zone_percent=10, central_zone_percent=20, mqtt_enable=True,
+                                             mqtt_topic='test/car/config/angle/#', mqtt_hostname=host, mqtt_port=port,
+                                             mqtt_client_id='donkey-config-angle-', mqtt_qos=1)
 
         wait_all_mqtt_messages_consumed(f'mqtt-subscription-{angle_config._mqtt_client_id}'
                                         f'qos{angle_config.qos}')
@@ -68,12 +91,12 @@ class TestAngleConfigController:
         angle_config.shutdown()
 
     def test_values(self, angle_config_controller: AngleConfigController, mqtt_config: Client):
-        use_only_near_contour, out_zone_percent, central_zone_percent = angle_config_controller.run()
-        assert use_only_near_contour == True
+        number_centroids_to_use, out_zone_percent, central_zone_percent = angle_config_controller.run()
+        assert number_centroids_to_use == 1
         assert out_zone_percent == 10
         assert central_zone_percent == 20
 
-        mqtt_config.publish(topic='test/car/config/angle/use_only_near_contour', payload="false", qos=1) \
+        mqtt_config.publish(topic='test/car/config/angle/number_centroids_to_use', payload="5", qos=1) \
             .wait_for_publish()
         mqtt_config.publish(topic='test/car/config/angle/out_zone_percent', payload="50", qos=1) \
             .wait_for_publish()
@@ -83,7 +106,7 @@ class TestAngleConfigController:
         wait_all_mqtt_messages_consumed(
             f'mqtt-subscription-{angle_config_controller._mqtt_client_id}'
             f'qos{angle_config_controller.qos}')
-        use_only_near_contour, out_zone_percent, central_zone_percent = angle_config_controller.run()
-        assert use_only_near_contour == False
+        number_centroids_to_use, out_zone_percent, central_zone_percent = angle_config_controller.run()
+        assert number_centroids_to_use == 5
         assert out_zone_percent == 50
         assert central_zone_percent == 60

@@ -3,7 +3,8 @@ import platform
 
 from donkeycar import Vehicle
 from donkeycar.parts.actuator import ANGLE, THROTTLE
-from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE
+from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
+    AngleContourDebug
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.mqtt import MqttMetricsPublisher, MqttDrive, USER_MODE
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
@@ -110,13 +111,14 @@ class BaseVehicle(Vehicle):
         return contours_detector
 
     def _configure_angle_part(self, cfg):
-        config = AngleConfigController(use_only_near_contour=cfg.USE_ONLY_NEAR_CONTOUR,
+        config = AngleConfigController(number_centroids_to_use=cfg.NB_CONTOURS_TO_USE,
                                        out_zone_percent=cfg.OUT_ZONE_PERCENT,
                                        central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
         self.register(config)
         self.register(AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
                                                angle_config_controller=config))
         self.register(AngleDebug(config=config))
+        self.register(AngleContourDebug(config=config))
 
     def _configure_throttle_controller(self, cfg):
         config_controller = ThrottleConfigController(stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK,

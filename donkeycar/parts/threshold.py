@@ -11,7 +11,8 @@ from donkeycar.parts.camera import CAM_IMAGE
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
 
-CENTROIDS = 'centroids'
+CONTOURS_CENTROIDS = 'contours/centroids'
+CONTOURS_SHAPES = 'contours/shapes'
 
 IMG_CONTOURS = 'img/contours'
 
@@ -357,11 +358,11 @@ class ContourController(Part):
         self._video_frame = None
         self._contours_detector = contours_detector
 
-    def run(self, image_array: ndarray) -> (ndarray, List[Centroid]):
+    def run(self, image_array: ndarray) -> (ndarray, List[Shape], List[Centroid]):
         try:
-            img, centroids = self._process_contours(image_array)
+            img, shapes, centroids = self._process_contours(image_array)
             self._video_frame = img
-            return img, centroids
+            return img, shapes, centroids
         except Exception:
             import numpy
             logging.exception("Unexpected error")
@@ -376,15 +377,13 @@ class ContourController(Part):
 
         cv2.drawContours(img, shapes, -1, (240, 40, 100), 1)
 
-        # First item is probably good item
-        cv2.drawContours(img, shapes[0:1], -1, (240, 0, 0), 3)
-
         logger.debug("Centroids founds: %s", centroids)
-        return img, centroids
+        return img, shapes, centroids
 
     def get_inputs_keys(self) -> List[str]:
         return [IMG_PROCESSED]
 
     def get_outputs_keys(self) -> List[str]:
         return [IMG_CONTOURS,
-                CENTROIDS]
+                CONTOURS_SHAPES,
+                CONTOURS_CENTROIDS]
