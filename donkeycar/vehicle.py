@@ -35,6 +35,7 @@ class Vehicle:
         self.on = True
         self.threads = []
         self.metrics_publisher = metrics_publisher
+        self.sleep_time = 0.0
 
     def register(self, part: Part, run_condition=None):
         self.add(part=part,
@@ -116,13 +117,14 @@ class Vehicle:
                 loop_count += 1
 
                 self.update_parts()
-                self._publish_metrics()
+                self._publish_metrics(rate_hz)
 
                 # stop drive loop if loop_count exceeds max_loopcount
                 if max_loop_count and loop_count > max_loop_count:
                     self.on = False
 
                 sleep_time = 1.0 / rate_hz - (time.time() - start_time)
+                self.sleep_time = sleep_time
                 if sleep_time > 0.0:
                     time.sleep(sleep_time)
 
@@ -167,7 +169,9 @@ class Vehicle:
                 logging.exception(e)
         logger.debug(self.mem.d)
 
-    def _publish_metrics(self):
+    def _publish_metrics(self, rate_htz):
         if self.metrics_publisher:
             metrics = dict([x for x in self.mem.d.items() if isinstance(x[0], str) and not x[0].startswith('_')])
+            metrics['sleep_time'] = self.sleep_time
+            metrics['rate_htz'] = rate_htz
             self.metrics_publisher.publish(metrics)
