@@ -43,28 +43,33 @@ class Vehicle:
                  threaded=isinstance(part, ThreadedPart),
                  run_condition=run_condition)
 
-    def add(self, part, inputs=[], outputs=[],
+    def add(self, part, inputs=None, outputs=None,
             threaded=False, run_condition=None):
         """
         Method to add a part to the vehicle drive loop.
 
         Parameters
         ----------
-            inputs : list
+            :param part:
+            :param inputs : list
                 Channel names to get from memory.
-            ouputs : list
+            :param outputs : list
                 Channel names to save to memory.
-            threaded : boolean
+            :param threaded : boolean
                 If a part should be run in a separate thread.
+            :param run_condition:
         """
 
+        if outputs is None:
+            outputs = []
+        if inputs is None:
+            inputs = []
         p = part
         logger.info('Adding part %s with inputs: %s and outputs: %s.', p.__class__.__name__, inputs, outputs)
-        entry = {}
-        entry['part'] = p
-        entry['inputs'] = inputs
-        entry['outputs'] = outputs
-        entry['run_condition'] = run_condition
+        entry = {'part': p,
+                 'inputs': inputs,
+                 'outputs': outputs,
+                 'run_condition': run_condition}
 
         if threaded:
             t = Thread(target=part.update, args=())
@@ -127,9 +132,9 @@ class Vehicle:
             self.stop()
 
     def update_parts(self):
-        '''
+        """
         loop over all parts
-        '''
+        """
         for entry in self.parts:
             # don't run if there is a run condition that is False
             run = True
