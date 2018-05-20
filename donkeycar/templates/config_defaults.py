@@ -20,7 +20,7 @@ DATA_PATH = os.path.join(CAR_PATH, 'data')
 MODELS_PATH = os.path.join(CAR_PATH, 'models')
 
 # VEHICLE
-DRIVE_LOOP_HZ = 40
+DRIVE_LOOP_HZ = 20
 MAX_LOOPS = 100000
 
 # CAMERA
