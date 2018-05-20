@@ -2,6 +2,7 @@ import logging
 import os
 import typing
 from pathlib import Path
+from time import sleep
 from typing import Dict, List
 
 import cv2
@@ -13,7 +14,6 @@ from compose.project import Project
 from compose.service import ImageType
 from numpy import ndarray
 from paho.mqtt import client as mqtt
-from time import sleep
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,11 @@ def _load_img(img):
 
 def _load_img_gray(img):
     return cv2.cvtColor(_load_img(img), cv2.COLOR_RGB2GRAY)
+
+
+@pytest.fixture(scope='session')
+def img_straight_line() -> ndarray:
+    return _load_img("straight_line_1.jpg")
 
 
 @pytest.fixture(scope='session')
