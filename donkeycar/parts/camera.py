@@ -1,11 +1,11 @@
 import glob
 import logging
 import os
-import time
 from typing import List
 
 import cv2
 import numpy as np
+import time
 from PIL import Image
 
 from donkeycar.parts.part import ThreadedPart
@@ -201,6 +201,7 @@ class ImageListCamera(BaseCamera, ThreadedPart):
         self.image_filenames.sort(key=get_image_index)
         # self.image_filenames.sort(key=os.path.getmtime)
         self.num_images = len(self.image_filenames)
+        print('%d images loaded.' % self.num_images)
         print(self.image_filenames[:10])
         self.i_frame = 0
         self.frame = None
@@ -212,9 +213,9 @@ class ImageListCamera(BaseCamera, ThreadedPart):
     def run_threaded(self):
         if self.num_images > 0:
             self.i_frame = (self.i_frame + 1) % self.num_images
-            self.frame = np.array(Image.open(self.image_filenames[self.i_frame]))
+            self.frame = Image.open(self.image_filenames[self.i_frame])
 
-        return self.frame
+        return np.asarray(self.frame)
 
     def get_inputs_keys(self) -> List[str]:
         return []

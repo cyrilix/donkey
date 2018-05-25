@@ -3,13 +3,13 @@ import json
 import logging
 from abc import abstractmethod
 from datetime import datetime
-from typing import Dict, Any, Callable, List
+from typing import Callable, Any, List, Dict
 
 import numpy
 import requests
 import time
 from paho.mqtt import client as mqtt
-from paho.mqtt.client import MQTTMessage, Client
+from paho.mqtt.client import Client, MQTTMessage
 
 from donkeycar import utils
 from donkeycar.parts.part import Part
@@ -24,8 +24,6 @@ class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, numpy.ndarray):
             return obj.tolist()
-        if isinstance(obj, numpy.number):
-            return obj.item()
         return json.JSONEncoder.default(self, obj)
 
 
