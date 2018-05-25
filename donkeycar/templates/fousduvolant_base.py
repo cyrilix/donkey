@@ -6,7 +6,7 @@ from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
     AngleContourDebug
 from donkeycar.parts.arduino import SerialPart
-from donkeycar.parts.mqtt import MqttMetricsPublisher, MqttDrive, USER_MODE
+from donkeycar.parts.mqtt import MqttMetricsPublisher, MqttDrive, USER_MODE, MultiProcessingMetringPublisher
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
     ConvertToGrayPart, ContoursDetector, ContourController, ContoursConfigController, ThresholdValueEstimatorConfig
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
@@ -23,15 +23,17 @@ class BaseVehicle(Vehicle):
         if not cfg.MQTT_ENABLE:
             mqtt_publisher = None
         else:
-            mqtt_publisher = MqttMetricsPublisher(
-                hostname=cfg.MQTT_HOSTNAME,
-                port=cfg.MQTT_PORT,
-                client_id=platform.node(),
-                qos=cfg.MQTT_QOS,
-                topic='fousduvolant/' + platform.node(),
-                username=platform.node(),
-                password=platform.node(),
-                publish_all_events=cfg.MQTT_PUBLISH_ALL_EVENTS)
+            mqtt_publisher = MultiProcessingMetringPublisher(MqttMetricsPublisher.__class__,
+                                                             publisher_args={
+                                                                 'hostname': cfg.MQTT_HOSTNAME,
+                                                                 'port': cfg.MQTT_PORT,
+                                                                 'client_id': platform.node(),
+                                                                 'qos': cfg.MQTT_QOS,
+                                                                 'topic': 'fousduvolant/' + platform.node(),
+                                                                 'username': platform.node(),
+                                                                 'password': platform.node(),
+                                                                 'publish_all_events': cfg.MQTT_PUBLISH_ALL_EVENTS
+                                                             })
         super().__init__(metrics_publisher=mqtt_publisher)
         self._configure(cfg)
 

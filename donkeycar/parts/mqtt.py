@@ -2,6 +2,8 @@ import base64
 import json
 import logging
 from abc import abstractmethod
+from multiprocessing import Process, Queue
+
 from datetime import datetime
 from typing import Callable, Any, List, Dict
 
@@ -25,6 +27,25 @@ class NumpyEncoder(json.JSONEncoder):
         if isinstance(obj, numpy.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
+
+class MultiProcessingMetringPublisher(MetricsPublisher):
+
+    def __init__(self, publisher: type, publisher_args: Dict[str, Any]) -> None:
+        self.publisher = publisher
+        self.queue = Queue()
+        self._process = Process(target=self.run_process, args=(self.queue, publisher, publisher_args))
+        self._process.start()
+
+    def publish(self, values: Dict[str, Any]):
+        self.queue.put(values)
+
+    @staticmethod
+    def run_process(queue: Queue, publisher_class: type, args: Dict[str, Any]):
+        metrics_publisher = publisher_class(**args)
+        while True:
+            metrics = queue.get()
+            metrics_publisher.publish(metrics)
 
 
 class MqttMetricsPublisher(MetricsPublisher):
