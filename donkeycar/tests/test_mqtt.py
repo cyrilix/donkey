@@ -1,11 +1,10 @@
-from typing import Dict, List
 from unittest.mock import Mock
 
 import pytest
 from paho.mqtt.client import MQTTMessage, Client
 
 from donkeycar.parts.mqtt import on_drive_message, MqttDrive
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
+from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
 
 
 class TestOnDriveMessage:
@@ -42,15 +41,10 @@ class TestOnDriveMessage:
 
 class TestDriveConfigController:
     @pytest.fixture(name='mqtt_drive')
-    def fixture_mqtt_drive(self, docker_network_info: Dict[str, List[NetworkInfo]]) -> MqttDrive:
-        mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
-        host = 'localhost'
-        port = 1883
-        wait_port_open(host=host, port=port)
-
+    def fixture_mqtt_drive(self, mqtt_address: (str, int)) -> MqttDrive:
         mqtt_drive = MqttDrive(mqtt_enable=True,
-                               mqtt_hostname=host,
-                               mqtt_port=port,
+                               mqtt_hostname=mqtt_address[0],
+                               mqtt_port=mqtt_address[1],
                                mqtt_qos=1,
                                mqtt_client_id='donkey-config-drive-',
                                mqtt_topic='test/car/config/drive/#')

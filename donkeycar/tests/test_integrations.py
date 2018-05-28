@@ -1,11 +1,12 @@
-from typing import List, Dict
+import os
+from pathlib import Path
 
 import pytest
 
 import donkeycar as dk
+from conftest import wait_port_open
 from donkeycar.parts.camera import ImageListCamera
 from donkeycar.templates.fousduvolant_base import BaseVehicle
-from donkeycar.tests.conftest import wait_port_open, NetworkInfo
 
 
 class MalabilleCar(BaseVehicle):
@@ -13,20 +14,18 @@ class MalabilleCar(BaseVehicle):
         pass
 
     def _configure_camera(self, cfg):
-        self.register(ImageListCamera(path_mask='test_parts/*.jpg'))
+        base_path = str(os.path.join(Path(__file__).parent, '..', '..'))
+        self.register(ImageListCamera(path_mask=base_path + '/test_parts/*.jpg'))
 
     def _configure_arduino(self, cfg):
         pass
 
 
 @pytest.fixture(name='car')
-def fixture_car(docker_network_info: Dict[str, List[NetworkInfo]]):
-    mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
-    host = 'localhost'
-    port = 1883
-    wait_port_open(host=host, port=port)
+def fixture_car(mqtt_address: (str, int)):
+    wait_port_open(host=mqtt_address[0], port=mqtt_address[1])
 
-    cfg = dk.load_config(config_path='donkeycar/templates/config_defaults.py')
+    cfg = dk.load_config(config_path=str(os.path.join(Path(__file__).parent, '../templates/config_defaults.py')))
     car = MalabilleCar(cfg=cfg)
     yield car
     car.stop()

@@ -1,11 +1,9 @@
-from typing import Dict, List
-
 import pytest
 from paho.mqtt.client import Client
 
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
     ThrottleConfigController
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
+from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
 
 
 @pytest.fixture(name='throttle_config_controller')
@@ -65,17 +63,12 @@ class TestThrottleControllerSteeringBased:
 
 class TestThrottleConfigController:
     @pytest.fixture(name='throttle_config_controller_mqtt')
-    def fixture_throttle_config_controller_mqtt(self, docker_network_info: Dict[str, List[NetworkInfo]]):
-        mqtt_service = docker_network_info["donkeycar_mqtt_1"][0]
-        host = 'localhost'
-        port = 1883
-        wait_port_open(host=host, port=port)
-
+    def fixture_throttle_config_controller_mqtt(self, mqtt_address):
         throttle_config = ThrottleConfigController(min_speed=0.1, max_speed=1, safe_angle=0.2, dangerous_angle=0.8,
                                                    stop_on_shock=True, use_steering=False,
                                                    mqtt_enable=True,
-                                                   mqtt_hostname=host,
-                                                   mqtt_port=port,
+                                                   mqtt_hostname=mqtt_address[0],
+                                                   mqtt_port=mqtt_address[1],
                                                    mqtt_qos=1,
                                                    mqtt_client_id='donkey-config-throttle-',
                                                    mqtt_topic='test/car/config/throttle/#')

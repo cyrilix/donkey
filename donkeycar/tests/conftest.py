@@ -1,19 +1,24 @@
 import logging
 import os
-import typing
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Iterator
 
 import cv2
+import docker
 import pytest
 import requests
 from compose.cli.command import project_from_options
 from compose.container import Container
 from compose.project import Project
 from compose.service import ImageType
+from docker import DockerClient
 from numpy import ndarray
 from paho.mqtt import client as mqtt
 from time import sleep
+
+DOCKER_COMPOSE_PROJECT = 'donkeycar'
+
+DOCKER_SERVICES = ['mqtt']
 
 logger = logging.getLogger(__name__)
 
@@ -41,45 +46,10 @@ def wait_all_mqtt_messages_consumed(queue, host='localhost', port=15672):
         sleep(0.5)
 
 
-class NetworkInfo:
-    """
-    Container for info about how to connect to a service exposed by a
-    Docker container.
-    """
-    container_port: typing.Text
-    """
-    Port (and usually also protocol name) exposed internally on the
-    container.
-    """
-
-    hostname: typing.Text
-    """
-    Hostname to use when accessing this service.
-    """
-
-    host_port: int
-    """
-    Port number to use when accessing this service.
-    """
-
-    def __init__(
-            self,
-            container_port: typing.Text,
-            hostname: typing.Text,
-            host_port: int,
-    ):
-        super().__init__()
-
-        self.container_port = container_port
-        self.hostname = hostname
-        self.host_port = host_port
-
-
 @pytest.fixture(name='mqtt_config')
-def fixture_mqtt_config(mqtt_service: NetworkInfo):
-    wait_port_open('localhost', 1883)
+def fixture_mqtt_config(mqtt_address: (str, int)):
     mqtt_client = mqtt.Client(client_id="test-push-config", clean_session=False, userdata=None, protocol=mqtt.MQTTv311)
-    mqtt_client.connect(host='localhost', port=1883, keepalive=60)
+    mqtt_client.connect(host=mqtt_address[0], port=mqtt_address[1], keepalive=60)
     mqtt_client.loop_start()
     yield mqtt_client
     mqtt_client.loop_stop()
@@ -110,70 +80,8 @@ def img_straight_line_binarized_150_200() -> ndarray:
     return _load_img_gray('straight_line_binarized_150_200.jpg')
 
 
-@pytest.fixture(scope='session')
-def docker_containers(docker_project: Project):
-    """
-    Spins up a the containers for the Docker project and returns
-    them.
-
-    Note that this fixture's scope is a single test; the containers
-    will be stopped after the test is finished.
-
-    This is intentional; stopping the containers destroys local
-    storage, so that the next test can start with fresh containers.
-    """
-    containers: typing.List[Container] = docker_project.up()
-
-    if not containers:
-        raise ValueError("`docker-compose` didn't launch any containers!")
-
-    yield containers
-
-    # Send container logs to stdout, so that they get included in
-    # the test report.
-    # https://docs.pytest.org/en/latest/capture.html
-    for container in sorted(containers, key=lambda c: c.name):
-        header = f"Logs from {container.name}:"
-        print(header)
-        print("=" * len(header))
-        print(
-            container.logs().decode("utf-8", errors="replace") or
-            "(no logs)"
-        )
-        print()
-
-    docker_project.down(ImageType.none, False)
-
-
-@pytest.fixture(scope='session')
-def docker_network_info(docker_containers: typing.List[Container]):
-    """
-    Returns hostnames and exposed port numbers for each container,
-    so that tests can interact with them.
-    """
-    return {
-        container.name: [
-            NetworkInfo(
-                container_port=container_port,
-                hostname=port_config["HostIp"] or "localhost",
-                host_port=port_config["HostPort"],
-            )
-
-            # Example::
-            #
-            #   {'8181/tcp': [{'HostIp': '', 'HostPort': '8182'}]}
-            for container_port, port_configs
-            in container.get("HostConfig.PortBindings").items()
-
-            for port_config in port_configs
-        ]
-
-        for container in docker_containers
-    }
-
-
 @pytest.fixture(scope="session")
-def docker_project():
+def docker_project() -> Project:
     """
     Builds the Docker project if necessary, once per session.
 
@@ -194,11 +102,46 @@ def docker_project():
     project = project_from_options(
         project_dir=str(docker_compose.parent),
         options={"--file": [docker_compose.name],
-                 '--project-name': 'donkeycar'}
+                 '--project-name': DOCKER_COMPOSE_PROJECT}
     )
     project.build()
 
     return project
+
+
+@pytest.fixture(scope='session')
+def docker_containers(docker_project: Project) -> Iterator[Dict[str, Container]]:
+    """
+    Spins up a the containers for the Docker project and returns
+    them.
+
+    Note that this fixture's scope is a single test; the containers
+    will be stopped after the test is finished.
+
+    This is intentional; stopping the containers destroys local
+    storage, so that the next test can start with fresh containers.
+    """
+    containers: List[Container] = docker_project.up(DOCKER_SERVICES)
+    if not containers:
+        raise ValueError("`docker-compose` didn't launch any containers!")
+    containers_by_name = dict([(c.name, c) for c in containers])
+
+    yield containers_by_name
+
+    # Send container logs to stdout, so that they get included in
+    # the test report.
+    # https://docs.pytest.org/en/latest/capture.html
+    for container in sorted(containers, key=lambda c: c.name):
+        header = f"Logs from {container.name}:"
+        logger.info(header)
+        logger.info("=" * len(header))
+        logger.info(
+            container.logs().decode("utf-8", errors="replace") or
+            "(no logs)"
+        )
+        logger.info('')
+
+    docker_project.down(ImageType.none, False)
 
 
 def _base_path():
@@ -206,6 +149,21 @@ def _base_path():
     return path
 
 
+@pytest.fixture(scope='session', name='docker_client')
+def fixture_docker_client() -> Iterator[DockerClient]:
+    client = docker.client.from_env()
+    yield client
+    client.close()
+
+
 @pytest.fixture(scope='session')
-def mqtt_service(docker_network_info: Dict[str, List[NetworkInfo]]) -> NetworkInfo:
-    return docker_network_info["donkeycar_mqtt_1"][0]
+def mqtt_address(docker_containers: Dict[str, Container], docker_client: DockerClient) -> (str, int):
+    mqtt = docker_containers.get(f'{DOCKER_COMPOSE_PROJECT}_mqtt_1')
+    container = docker_client.containers.get(mqtt.id)
+
+    # host = container.attrs['NetworkSettings']['Ports']['1883/tcp'][0]['HostPort']
+    host = 'localhost'
+    port = int(container.attrs['NetworkSettings']['Ports']['1883/tcp'][0]['HostPort'])
+    wait_port_open(host=host, port=port)
+
+    return host, port

@@ -4,7 +4,7 @@ import pytest
 from paho.mqtt.client import Client
 
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController
-from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed, NetworkInfo
+from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +76,10 @@ class TestAngleEstimatorMiddleLine:
 
 class TestAngleConfigController:
     @pytest.fixture(name='angle_config_controller')
-    def fixture_angle_config_controller_mqtt(self, mqtt_service: NetworkInfo) -> AngleConfigController:
-        host = 'localhost'
-        port = 1883
-        wait_port_open(host=host, port=port)
-
+    def fixture_angle_config_controller_mqtt(self, mqtt_address: (str, int)) -> AngleConfigController:
         angle_config = AngleConfigController(out_zone_percent=10, central_zone_percent=20, mqtt_enable=True,
-                                             mqtt_topic='test/car/config/angle/#', mqtt_hostname=host, mqtt_port=port,
+                                             mqtt_topic='test/car/config/angle/#', mqtt_hostname=mqtt_address[0],
+                                             mqtt_port=mqtt_address[1],
                                              mqtt_client_id='donkey-config-angle-', mqtt_qos=1)
 
         wait_all_mqtt_messages_consumed(f'mqtt-subscription-{angle_config._mqtt_client_id}'
