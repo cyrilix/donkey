@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 import donkeycar as dk
-from conftest import wait_port_open
+from donkeycar.tests.conftest import wait_port_open
 from donkeycar.parts.camera import ImageListCamera
 from donkeycar.templates.fousduvolant_base import BaseVehicle
 

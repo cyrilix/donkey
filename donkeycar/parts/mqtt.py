@@ -1,15 +1,14 @@
 import base64
 import json
 import logging
+import time
 from abc import abstractmethod
-from multiprocessing import Process, Queue
-
 from datetime import datetime
-from typing import Callable, Any, List, Dict
+from multiprocessing import Process, Queue
+from typing import Callable, Any, List, Dict, Tuple
 
 import numpy
 import requests
-import time
 from paho.mqtt import client as mqtt
 from paho.mqtt.client import Client, MQTTMessage
 
@@ -31,21 +30,37 @@ class NumpyEncoder(json.JSONEncoder):
 
 class MultiProcessingMetringPublisher(MetricsPublisher):
 
-    def __init__(self, publisher: type, publisher_args: Dict[str, Any]) -> None:
-        self.publisher = publisher
+    def __init__(self, topic: str = 'car', client_id: str = 'test', mqtt_address: Tuple[str, int] = ('localhost', 1883),
+                 mqtt_user: str = 'guest', mqtt_password: str = 'guest', qos=0) -> None:
         self.queue = Queue()
-        self._process = Process(target=self.run_process, args=(self.queue, publisher, publisher_args))
+        self._process = Process(target=run_process,
+                                args=(self.queue, topic, client_id, mqtt_address, mqtt_user, mqtt_password, qos))
         self._process.start()
 
     def publish(self, values: Dict[str, Any]):
-        self.queue.put(values)
+        logger.debug("Put message %s", values)
+        self.queue.put(values, block=True)
 
-    @staticmethod
-    def run_process(queue: Queue, publisher_class: type, args: Dict[str, Any]):
-        metrics_publisher = publisher_class(**args)
+    def shutdown(self):
+        self.queue.close()
+        self._process.terminate()
+
+
+def run_process(queue: Queue, topic: str, client_id: str, mqtt_address: Tuple[str, int], mqtt_user: str,
+                mqtt_password: str, qos: int):
+    try:
+        publisher = MqttMetricsPublisher(topic=topic, client_id=client_id, hostname=mqtt_address[0],
+                                         port=mqtt_address[1],
+                                         username=mqtt_user, password=mqtt_password,
+                                         qos=qos)
         while True:
-            metrics = queue.get()
-            metrics_publisher.publish(metrics)
+            logger.debug('Wait message')
+            metrics = queue.get(block=True)
+            logger.debug("Receive msg %s", metrics)
+
+            publisher.publish(metrics)
+    except:
+        logger.exception("Unexpected error")
 
 
 class MqttMetricsPublisher(MetricsPublisher):
@@ -60,7 +75,8 @@ class MqttMetricsPublisher(MetricsPublisher):
 
         self._mqtt_client = mqtt.Client(client_id=client_id + "-", clean_session=False, userdata=None,
                                         protocol=mqtt.MQTTv311)
-        self._mqtt_client.username_pw_set(username=username, password=password)
+        if username:
+            self._mqtt_client.username_pw_set(username=username, password=password)
         self._mqtt_client.connect(hostname, port, 60)
         self._mqtt_client.loop_start()
         self._topic = topic
@@ -148,7 +164,8 @@ class MqttMetricsPublisher(MetricsPublisher):
         return name
 
     def _publish(self, message, topic):
-        self._mqtt_client.publish(payload=json.dumps(message, cls=NumpyEncoder), topic=topic, qos=self._qos)
+        self._mqtt_client.publish(payload=json.dumps(message, cls=NumpyEncoder), topic=topic,
+                                  qos=self._qos)
 
     def shutdown(self):
         if self._mqtt_client:

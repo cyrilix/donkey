@@ -6,11 +6,10 @@ Created on Sun Jun 25 10:44:24 2017
 @author: wroscoe
 """
 import logging
+import time
 from abc import ABC, abstractmethod
 from threading import Thread
 from typing import Any, Dict
-
-import time
 
 from donkeycar.parts.part import Part, ThreadedPart
 from .memory import Memory
@@ -22,6 +21,10 @@ class MetricsPublisher(ABC):
 
     @abstractmethod
     def publish(self, values: Dict[str, Any]):
+        pass
+
+    @abstractmethod
+    def shutdown(self):
         pass
 
 
@@ -167,6 +170,8 @@ class Vehicle:
                 entry['part'].shutdown()
             except Exception as e:
                 logging.exception(e)
+        if self.metrics_publisher:
+            self.metrics_publisher.shutdown()
         logger.debug(self.mem.d)
 
     def _publish_metrics(self, rate_htz):

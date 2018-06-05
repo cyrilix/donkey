@@ -1,10 +1,18 @@
+import json
+import logging
+from time import sleep
+from typing import Iterator
 from unittest.mock import Mock
 
 import pytest
 from paho.mqtt.client import MQTTMessage, Client
+from paho.mqtt.subscribe import simple
 
-from donkeycar.parts.mqtt import on_drive_message, MqttDrive
+from donkeycar.parts.mqtt import on_drive_message, MqttDrive, MqttMetricsPublisher, MultiProcessingMetringPublisher
 from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
+from donkeycar.vehicle import MetricsPublisher
+
+logger = logging.getLogger(__name__)
 
 
 class TestOnDriveMessage:
@@ -67,3 +75,25 @@ class TestDriveConfigController:
 
         user_mode = mqtt_drive.run()
         assert user_mode == 'local'
+
+
+class TestMultiProcessing:
+
+    @pytest.fixture(name='metrics')
+    def fixture_metrics_multiprocessing(self, mqtt_address: (str, int)) -> Iterator[MqttMetricsPublisher]:
+        mqtt_publisher = MultiProcessingMetringPublisher(client_id='test_multiprocessing',
+                                                         mqtt_address=mqtt_address,
+                                                         topic='test/multiprocessing',
+                                                         qos=1)
+        sleep(5)
+        yield mqtt_publisher
+        mqtt_publisher.shutdown()
+
+    def test_mqtt_metrics(self, mqtt_address: (str, int), metrics: MetricsPublisher):
+        metrics.publish({'key': 'value', 'user/mode': 'user'})
+        message: MQTTMessage = simple(hostname=mqtt_address[0], port=mqtt_address[1], topics='#', msg_count=1)
+        logger.info("Messages: %s", message.payload)
+        payload = json.loads(message.payload)
+
+        assert 'value' == payload['payload']['key']
+        assert 'user' == payload['payload']['user/mode']

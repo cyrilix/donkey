@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from time import sleep
 from typing import Dict, List, Iterator
 
 import cv2
@@ -14,7 +15,6 @@ from compose.service import ImageType
 from docker import DockerClient
 from numpy import ndarray
 from paho.mqtt import client as mqtt
-from time import sleep
 
 DOCKER_COMPOSE_PROJECT = 'donkeycar'
 
@@ -162,7 +162,7 @@ def mqtt_address(docker_containers: Dict[str, Container], docker_client: DockerC
     container = docker_client.containers.get(mqtt.id)
 
     # host = container.attrs['NetworkSettings']['Ports']['1883/tcp'][0]['HostPort']
-    host = 'localhost'
+    host = '127.0.0.1'
     port = int(container.attrs['NetworkSettings']['Ports']['1883/tcp'][0]['HostPort'])
     wait_port_open(host=host, port=port)
 
