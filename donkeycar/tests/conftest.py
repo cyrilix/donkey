@@ -66,6 +66,11 @@ def _load_img_gray(img):
 
 
 @pytest.fixture(scope='session')
+def img_straight_line() -> ndarray:
+    return _load_img("straight_line_1.jpg")
+
+
+@pytest.fixture(scope='session')
 def img_straight_line_gray() -> ndarray:
     return _load_img_gray("straight_line_1.jpg")
 

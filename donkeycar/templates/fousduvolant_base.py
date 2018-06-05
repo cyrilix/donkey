@@ -6,7 +6,9 @@ from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
     AngleContourDebug
 from donkeycar.parts.arduino import SerialPart
-from donkeycar.parts.mqtt import MqttDrive, USER_MODE, MultiProcessingMetringPublisher
+from donkeycar.parts.mqtt import MqttDrive, USER_MODE
+from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
+from donkeycar.parts.road import RoadPart, RoadDebugPart, RoadConfigController
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
     ConvertToGrayPart, ContoursDetector, ContourController, ContoursConfigController, ThresholdValueEstimatorConfig
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
@@ -57,6 +59,8 @@ class BaseVehicle(Vehicle):
         self._configure_threshold(cfg)
 
         self.register(ContourController(contours_detector=contours_detector))
+
+        self._configure_road_detection()
 
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
@@ -154,3 +158,9 @@ class BaseVehicle(Vehicle):
                                                      threshold_delta=dynamic_delta, horizon=horizon)
         self.register(threshold_config)
         self.register(ThresholdController(config=threshold_config))
+
+    def _configure_road_detection(self):
+        config = RoadConfigController(mqtt_enable=True)
+        self.register(config)
+        self.register(RoadPart(config=config))
+        self.register(RoadDebugPart())
