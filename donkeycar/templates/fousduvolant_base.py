@@ -6,11 +6,12 @@ from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
     AngleContourDebug
 from donkeycar.parts.arduino import SerialPart
+from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart
 from donkeycar.parts.mqtt import MqttDrive, USER_MODE
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
 from donkeycar.parts.road import RoadPart, RoadDebugPart, RoadConfigController
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
-    ConvertToGrayPart, ContoursDetector, ContourController, ContoursConfigController, ThresholdValueEstimatorConfig
+    ContoursDetector, ContourController, ContoursConfigController, ThresholdValueEstimatorConfig
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
     ThrottleController, ThrottleConfigController, PILOT_THROTTLE
 from donkeycar.parts.transform import Lambda
@@ -51,6 +52,8 @@ class BaseVehicle(Vehicle):
 
         # Convert image to gray
         self.register(ConvertToGrayPart())
+        self.register(HistogramPart())
+        self.register(GraySelectorPart())
 
         contours_detector = self._configure_contours_detector(cfg)
 

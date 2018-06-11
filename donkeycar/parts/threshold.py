@@ -2,12 +2,11 @@ import logging
 from typing import List, Tuple
 
 import cv2
-import numpy
 from imutils import contours
 from numpy.core.multiarray import ndarray
 from paho.mqtt.client import Client, MQTTMessage
 
-from donkeycar.parts.camera import CAM_IMAGE
+from donkeycar.parts.img_process import IMG_GRAY
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
 
@@ -20,8 +19,6 @@ IMG_HORIZON = 'img/horizon'
 CFG_THREHOLD_VALUE_ESTIMATOR_CENTROID_VALUE = 'cfg/threshold_value_estimator/centroid_value'
 
 IMG_PROCESSED = 'img/processed'
-
-IMG_GRAY = 'img/gray'
 
 CFG_THRESHOLD_FROM_LINE = 'cfg/threshold/from_line'
 
@@ -354,25 +351,6 @@ def _on_threshold_config_message(_: Client, userdata: ThresholdConfigController,
         userdata.horizon = new_value
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
-
-
-class ConvertToGrayPart(Part):
-    """
-    Convert color image to gray
-    """
-
-    def run(self, image_array: ndarray) -> ndarray:
-        try:
-            return cv2.cvtColor(image_array.copy(), cv2.COLOR_RGB2GRAY)
-        except Exception:
-            logging.exception("Unexpected error")
-            return numpy.zeros(image_array.shape)
-
-    def get_inputs_keys(self) -> List[str]:
-        return [CAM_IMAGE]
-
-    def get_outputs_keys(self) -> List[str]:
-        return [IMG_GRAY]
 
 
 class ContourController(Part):

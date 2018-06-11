@@ -8,9 +8,10 @@ from numpy import ndarray
 from paho.mqtt.client import Client, MQTTMessage
 
 from donkeycar.parts.camera import CAM_IMAGE
+from donkeycar.parts.img_process import IMG_GRAY
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
-from donkeycar.parts.threshold import Shape, IMG_GRAY
+from donkeycar.parts.threshold import Shape
 
 ROAD_CONTOUR = 'road/contour'
 ROAD_HORIZON = 'road/horizon'
