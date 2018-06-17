@@ -5,7 +5,7 @@ from donkeycar import Vehicle
 from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
     AngleContourDebug
-from donkeycar.parts.arduino import SerialPart
+from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE
 from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart
 from donkeycar.parts.mqtt import MqttDrive, USER_MODE
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
@@ -78,10 +78,10 @@ class BaseVehicle(Vehicle):
         def drive_mode(mode,
                        user_angle, user_throttle,
                        pilot_angle, pilot_throttle):
-            if mode == 'user':
+            if mode == DRIVE_MODE_USER:
                 return user_angle, user_throttle
 
-            elif mode == 'local_angle':
+            elif mode == DRIVE_MODE_LOCAL_ANGLE:
                 return pilot_angle, user_throttle
 
             else:

@@ -12,14 +12,15 @@ The client and web server needed to control a car remotely.
 import json
 import logging
 import os
+import time
 from typing import List
 
 import requests
-import time
 import tornado.gen
 import tornado.ioloop
 import tornado.web
 
+from donkeycar.parts.arduino import DRIVE_MODE_USER
 from donkeycar.parts.camera import CAM_IMAGE
 from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.part import ThreadedPart
@@ -46,7 +47,7 @@ class RemoteWebServer():
         self.time = 0.
         self.angle = 0.
         self.throttle = 0.
-        self.mode = 'user'
+        self.mode = DRIVE_MODE_USER
         self.recording = False
         # use one session for all requests
         self.session = requests.Session()
@@ -118,7 +119,7 @@ class LocalWebController(tornado.web.Application, ThreadedPart):
 
         self.angle = 0.0
         self.throttle = 0.0
-        self.mode = 'user'
+        self.mode = DRIVE_MODE_USER
         self.recording = False
 
         handlers = [

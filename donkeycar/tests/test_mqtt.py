@@ -8,6 +8,7 @@ import pytest
 from paho.mqtt.client import MQTTMessage, Client
 from paho.mqtt.subscribe import simple
 
+from donkeycar.parts.arduino import DRIVE_MODE_USER
 from donkeycar.parts.mqtt import on_drive_message, MqttDrive, MqttMetricsPublisher, MultiProcessingMetringPublisher
 from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
 from donkeycar.vehicle import MetricsPublisher
@@ -90,7 +91,7 @@ class TestMultiProcessing:
         mqtt_publisher.shutdown()
 
     def test_mqtt_metrics(self, mqtt_address: (str, int), metrics: MetricsPublisher):
-        metrics.publish({'key': 'value', 'user/mode': 'user'})
+        metrics.publish({'key': 'value', 'user/mode': DRIVE_MODE_USER})
         message: MQTTMessage = simple(hostname=mqtt_address[0], port=mqtt_address[1], topics='#', msg_count=1)
         logger.info("Messages: %s", message.payload)
         payload = json.loads(message.payload)

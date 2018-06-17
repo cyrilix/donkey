@@ -14,7 +14,7 @@ from docopt import docopt
 
 import donkeycar as dk
 from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
-# import parts
+from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.camera import PiCamera
 from donkeycar.templates.fousduvolant_base import BaseVehicle
 
@@ -37,6 +37,7 @@ class Satanas(BaseVehicle):
 
         self.register(steering)
         self.register(throttle)
+        self.register(SerialPart())
 
     def _configure_camera(self, cfg):
         self.register(PiCamera(resolution=cfg.CAMERA_RESOLUTION))
