@@ -90,6 +90,7 @@ class TestMultiProcessing:
         yield mqtt_publisher
         mqtt_publisher.shutdown()
 
+    @pytest.mark.skip(reason='Test slow and possible deadlock')
     def test_mqtt_metrics(self, mqtt_address: (str, int), metrics: MetricsPublisher):
         metrics.publish({'key': 'value', 'user/mode': DRIVE_MODE_USER})
         message: MQTTMessage = simple(hostname=mqtt_address[0], port=mqtt_address[1], topics='#', msg_count=1)
