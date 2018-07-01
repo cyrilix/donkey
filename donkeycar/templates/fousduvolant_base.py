@@ -93,6 +93,7 @@ class BaseVehicle(Vehicle):
 
         self.register(drive_mode_part)
         self._configure_car_hardware(cfg)
+        self._configure_indicators(cfg)
 
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
 
@@ -145,6 +146,9 @@ class BaseVehicle(Vehicle):
         pass
 
     def _configure_camera(self, cfg):
+        pass
+
+    def _configure_indicators(self, cfg):
         pass
 
     def _configure_threshold(self, cfg):

@@ -16,6 +16,7 @@ import donkeycar as dk
 from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
 from donkeycar.parts.arduino import SerialPart
 from donkeycar.parts.camera import PiCamera
+from donkeycar.parts.indicators import UserModeIndicatorLight
 from donkeycar.templates.fousduvolant_base import BaseVehicle
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,9 @@ class Satanas(BaseVehicle):
 
     def _configure_camera(self, cfg):
         self.register(PiCamera(resolution=cfg.CAMERA_RESOLUTION))
+
+    def _configure_indicators(self, cfg):
+        self.register(UserModeIndicatorLight(pin_red=23, pin_green=24, pin_blue=25))
 
 
 if __name__ == '__main__':
