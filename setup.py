@@ -18,11 +18,6 @@ web_controller_html = package_files('donkeycar/parts/web_controller/templates', 
 
 extra_files = car_templates + web_controller_html
 
-tests_require = ['pytest',
-                 'matplotlib',
-                 'docker-compose',
-                 'docker'],
-
 setup(name='donkeycar',
       version='2.2.1',
       description='Self driving library for python.',
@@ -34,21 +29,6 @@ setup(name='donkeycar',
           ],
       },
       setup_requires=['pytest-runner'],
-      install_requires=['numpy',
-                        'pillow',
-                        'docopt',
-                        'tornado==4.5.3',
-                        'requests',
-                        'python-socketio',
-                        'flask',
-                        'eventlet',
-                        'moviepy',
-                        'pandas',
-                        'imutils',
-                        'opencv-python',
-                        'pyserial',
-                        'paho-mqtt'],
-      tests_require=tests_require,
       extras_require={
           'pi': ['picamera',
                  'Adafruit_PCA9685',
@@ -58,8 +38,7 @@ setup(name='donkeycar',
                  'Pygame'],
           'learning': ['keras',
                        'tensorflow>=1.1',
-                       'h5py'],
-          'tests': tests_require
+                       'h5py']
       },
       package_data={
           'donkeycar': extra_files,

@@ -1,0 +1,13 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+donkeycar = {editable = true, path = ".", extras = ["learning"]}
+
+[dev-packages]
+donkeycar = {editable = true, path = ".", extras = ["tests"]}
+
+[requires]
+python_version = "3.6"
