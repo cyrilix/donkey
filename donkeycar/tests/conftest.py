@@ -2,7 +2,6 @@ import importlib as importlib
 import logging
 import os
 from pathlib import Path
-from time import sleep
 from typing import Dict, List, Iterator
 
 import cv2
@@ -16,6 +15,7 @@ from compose.service import ImageType
 from docker import DockerClient
 from numpy import ndarray
 from paho.mqtt import client as mqtt
+from time import sleep
 
 DOCKER_COMPOSE_PROJECT = 'donkeycar'
 
@@ -152,9 +152,9 @@ def docker_containers(docker_project: Project) -> Iterator[Dict[str, Container]]
     docker_project.down(ImageType.none, False)
 
 
-def _base_path():
+def _base_path() -> Path:
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
-    return path
+    return Path(path)
 
 
 @pytest.fixture(scope='session', name='docker_client')
