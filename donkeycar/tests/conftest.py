@@ -7,6 +7,7 @@ from typing import Dict, List, Iterator
 
 import cv2
 import docker
+import importlib as importlib
 import pytest
 import requests
 from compose.cli.command import project_from_options
@@ -25,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 learning = pytest.mark.skipif(importlib.util.find_spec('tensorflow') is None, reason="Learning lib not installed")
 
+
+learning = pytest.mark.skipif(importlib.util.find_spec('tensorflow') is None, reason="Learning lib not installed")
 
 def wait_port_open(host: str, port: int):
     import socket
