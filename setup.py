@@ -13,6 +13,11 @@ def package_files(directory, strip_leading):
     return paths
 
 
+tests_require = ['pytest',
+                 'matplotlib',
+                 'docker-compose',
+                 'docker']
+
 car_templates = ['templates/*']
 web_controller_html = package_files('donkeycar/parts/web_controller/templates', 'donkeycar/')
 
@@ -29,6 +34,21 @@ setup(name='donkeycar',
           ],
       },
       setup_requires=['pytest-runner'],
+      install_requires=['numpy',
+                        'pillow',
+                        'docopt',
+                        'tornado==4.5.3',
+                        'requests',
+                        'python-socketio',
+                        'flask',
+                        'eventlet',
+                        'moviepy',
+                        'opencv-python',
+                        'imutils',
+                        'pandas',
+                        'pyserial',
+                        'paho-mqtt'],
+      tests_require=tests_require,
       extras_require={
           'pi': ['picamera',
                  'Adafruit_PCA9685',
@@ -38,7 +58,8 @@ setup(name='donkeycar',
                  'Pygame'],
           'learning': ['keras',
                        'tensorflow>=1.1',
-                       'h5py']
+                       'h5py'],
+          'tests': tests_require
       },
       package_data={
           'donkeycar': extra_files,

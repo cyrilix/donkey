@@ -1,3 +1,4 @@
+import importlib as importlib
 import logging
 import os
 from pathlib import Path
@@ -22,6 +23,8 @@ DOCKER_SERVICES = ['mqtt']
 
 logger = logging.getLogger(__name__)
 
+learning = pytest.mark.skipif(importlib.util.find_spec('tensorflow') is None, reason="Learning lib not installed")
+
 
 def wait_port_open(host: str, port: int):
     import socket
@@ -36,13 +39,13 @@ def wait_port_open(host: str, port: int):
 def wait_all_mqtt_messages_consumed(queue, host='localhost', port=15672):
     while True:
         try:
-            r = requests.get(f'http://{host}:{port}/api/queues/%2F/{queue}?columns=messages',
+            r = requests.get('http://{0}:{1}/api/queues/%2F/{2}?columns=messages'.format(host, port, queue),
                              auth=('guest', 'guest'))
             content = r.json()
             if 'messages' in content and content['messages'] == 0:
                 return
         except:
-            logger.debug(f'Wait port {port} open')
+            logger.debug('Wait port %s open', port)
         sleep(0.5)
 
 
@@ -101,7 +104,7 @@ def docker_project() -> Project:
 
     if not docker_compose.is_file():
         raise ValueError(
-            f"Unable to find `{docker_compose}` for integration tests.",
+            "Unable to find `{0}` for integration tests.".format(docker_compose),
         )
 
     project = project_from_options(
@@ -137,7 +140,7 @@ def docker_containers(docker_project: Project) -> Iterator[Dict[str, Container]]
     # the test report.
     # https://docs.pytest.org/en/latest/capture.html
     for container in sorted(containers, key=lambda c: c.name):
-        header = f"Logs from {container.name}:"
+        header = "Logs from {0}:".format(container.name)
         logger.info(header)
         logger.info("=" * len(header))
         logger.info(
@@ -163,7 +166,7 @@ def fixture_docker_client() -> Iterator[DockerClient]:
 
 @pytest.fixture(scope='session')
 def mqtt_address(docker_containers: Dict[str, Container], docker_client: DockerClient) -> (str, int):
-    mqtt = docker_containers.get(f'{DOCKER_COMPOSE_PROJECT}_mqtt_1')
+    mqtt = docker_containers.get('{0}_mqtt_1'.format(DOCKER_COMPOSE_PROJECT))
     container = docker_client.containers.get(mqtt.id)
 
     # host = container.attrs['NetworkSettings']['Ports']['1883/tcp'][0]['HostPort']

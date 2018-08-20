@@ -6,15 +6,17 @@ Created on Thu Oct 12 2017
 @author: tawnkramer
 """
 
-
 import unittest
 from donkeycar.parts.simulation import SteeringServer, FPSTimer
-from donkeycar.parts.keras import KerasCategorical
+from donkeycar.tests.conftest import learning
 
+
+@learning
 class TestSimServer(unittest.TestCase):
-    
+
     def test_create_sim_server(self):
         import socketio
+        from donkeycar.parts.keras import KerasCategorical
         kc = KerasCategorical()
         sio = socketio.Server()
         assert sio is not None
@@ -30,5 +32,3 @@ class TestSimServer(unittest.TestCase):
         assert tm.iter == 2
         tm.iter = 100
         tm.on_frame()
-        
-

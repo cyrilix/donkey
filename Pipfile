@@ -4,7 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-donkeycar = {editable = true, path = ".", extras = ["learning"]}
+donkeycar = {editable = true, path = ".", extras = []}
+importlib = "*"
 
 [dev-packages]
 donkeycar = {editable = true, path = ".", extras = ["tests"]}
