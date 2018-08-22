@@ -6,7 +6,8 @@ from time import sleep
 
 from donkeycar import Vehicle
 from donkeycar.parts.camera import VideoCamera
-from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart
+from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart, BlurPart, IMG_GRAY_RAW, \
+    BoundingBoxPart
 from donkeycar.parts.road import RoadDebugPart, RoadPart, RoadConfigController
 from donkeycar.parts.threshold import ThresholdController, ThresholdConfigController
 from donkeycar.tests.conftest import _base_path
@@ -28,8 +29,8 @@ def fixture_video_camera(video: Path) -> VideoCamera:
 def fixture_road_config() -> RoadConfigController:
     return RoadConfigController(enable=True,
                                 canny_threshold1=180,
-                                canny_threshold2=230,
-                                kernel_size=3,
+                                canny_threshold2=200,
+                                kernel_size=4,
                                 mqtt_enable=False)
 
 
@@ -38,10 +39,12 @@ def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController
     vehicle = Vehicle()
     vehicle.register(video_camera)
     vehicle.register(ConvertToGrayPart())
+    vehicle.register(BlurPart(input_key=IMG_GRAY_RAW, output_key=IMG_GRAY_RAW))
+    vehicle.register(BoundingBoxPart(input_img_key=IMG_GRAY_RAW, output_img_key=IMG_GRAY_RAW))
     vehicle.register(HistogramPart())
     vehicle.register(GraySelectorPart())
-    vehicle.register(ThresholdController(config=ThresholdConfigController(limit_min=180, limit_max=230,
-                                                                          threshold_default=150,
+    vehicle.register(ThresholdController(config=ThresholdConfigController(limit_min=180, limit_max=200,
+                                                                          threshold_default=190,
                                                                           threshold_delta=10,
                                                                           threshold_dynamic=False, mqtt_enable=False)))
     vehicle.register(RoadPart(road_config))
@@ -52,9 +55,9 @@ def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController
 def test_render(vehicle: Vehicle) -> None:
     while True:
         vehicle.update_parts()
-        gray = vehicle.mem.get(vehicle.parts[3]['outputs'])[0]
-        threshold = vehicle.mem.get(vehicle.parts[4]['outputs'])[0]
-        road = vehicle.mem.get(vehicle.parts[6]['outputs'])[0]
+        gray = vehicle.mem.get(vehicle.parts[5]['outputs'])[0]
+        threshold = vehicle.mem.get(vehicle.parts[6]['outputs'])[0]
+        road = vehicle.mem.get(vehicle.parts[8]['outputs'])[0]
         cv2.imshow('gray', gray)
         cv2.imshow('threshold', threshold)
         cv2.imshow('road', road)

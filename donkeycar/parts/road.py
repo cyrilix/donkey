@@ -191,7 +191,10 @@ class RoadPart(Part):
                 ys.append((y1 + y2) / 2)
 
         import statistics
-        y = int(statistics.mean(ys))
+        if ys:
+            y = int(statistics.mean(ys))
+        else:
+            y = 0
         return (0, y), (edges.shape[1], y)
 
     def _detect_road_contour(self, img_inversed: ndarray) -> Shape:
@@ -222,7 +225,6 @@ class RoadDebugPart(Part):
         try:
             if not road_shape:
                 return np.zeros(img.shape, dtype=img.dtype)
-
             mask = np.zeros(img.shape, np.uint8)
 
             mask = cv2.drawContours(image=mask, contours=[np.array(road_shape)], contourIdx=0,
