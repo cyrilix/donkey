@@ -6,6 +6,7 @@ from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
     AngleContourDebug
 from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE
+from donkeycar.parts.controller_8bitdo import Snes8bitdoController, SNES_CONTROLLER_ANGLE, SNES_CONTROLLER_THROTTLE
 from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart
 from donkeycar.parts.mqtt import MqttDrive, USER_MODE
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
@@ -65,6 +66,8 @@ class BaseVehicle(Vehicle):
 
         self._configure_road_detection()
 
+        self.register(Snes8bitdoController())
+
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
         self.register(LocalWebController())
@@ -77,9 +80,10 @@ class BaseVehicle(Vehicle):
         # Choose what inputs should change the car.
         def drive_mode(mode,
                        user_angle, user_throttle,
-                       pilot_angle, pilot_throttle):
+                       pilot_angle, pilot_throttle,
+                       snes_controller_angle, snes_controller_throttle):
             if mode == DRIVE_MODE_USER:
-                return user_angle, user_throttle
+                return snes_controller_angle, snes_controller_throttle
 
             elif mode == DRIVE_MODE_LOCAL_ANGLE:
                 return pilot_angle, user_throttle
@@ -88,7 +92,10 @@ class BaseVehicle(Vehicle):
                 return pilot_angle, pilot_throttle
 
         drive_mode_part = Lambda(drive_mode,
-                                 inputs=[USER_MODE, USER_ANGLE, USER_THROTTLE, PILOT_ANGLE, PILOT_THROTTLE],
+                                 inputs=[USER_MODE,
+                                         USER_ANGLE, USER_THROTTLE,
+                                         PILOT_ANGLE, PILOT_THROTTLE,
+                                         SNES_CONTROLLER_ANGLE, SNES_CONTROLLER_THROTTLE],
                                  outputs=[ANGLE, THROTTLE])
 
         self.register(drive_mode_part)
