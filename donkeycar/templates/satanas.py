@@ -38,7 +38,7 @@ class Satanas(BaseVehicle):
 
         self.register(steering)
         self.register(throttle)
-        self.register(SerialPart())
+        self.register(SerialPart(port=cfg.ARDUINO_SERIAL_PORT, baudrate=cfg.ARDUINO_SERIAL_BAUDRATE))
 
     def _configure_camera(self, cfg):
         self.register(PiCamera(resolution=cfg.CAMERA_RESOLUTION))
