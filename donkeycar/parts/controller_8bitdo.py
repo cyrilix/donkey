@@ -51,6 +51,10 @@ class Snes8bitdoController(ThreadedPart):
         self._mode = user_mode
         return self._mode, self._throttle, self._angle
 
+    def run(self, user_mode):
+        self._mode = user_mode
+        return self._mode, self._throttle, self._angle
+
     def get_inputs_keys(self) -> List[str]:
         return [USER_MODE]
 
