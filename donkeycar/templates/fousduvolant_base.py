@@ -66,12 +66,12 @@ class BaseVehicle(Vehicle):
 
         self._configure_road_detection()
 
+        self.register(MqttDrive())
         self.register(Snes8bitdoController())
 
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
         self.register(LocalWebController())
-        self.register(MqttDrive())
 
         self._configure_angle_part(cfg)
 

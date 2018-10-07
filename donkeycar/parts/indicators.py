@@ -35,7 +35,6 @@ class UserModeIndicatorLight(Part):
             self._set_green_value(0)
             self._set_blue_value(255)
 
-
     def _set_red_value(self, value: int):
         if value == 0:
             GPIO.output(self._pin_red, GPIO.LOW)
