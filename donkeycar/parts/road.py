@@ -148,10 +148,11 @@ class RoadPart(Part):
     EMPTY_ROAD_CONTOUR = []
     EMPTY_HORIZON = ((0, 0), (0, 0))
 
-    def __init__(self, config: RoadConfigController = RoadConfigController(mqtt_enable=False)):
+    def __init__(self, config: RoadConfigController = RoadConfigController(mqtt_enable=False), input_img_type=IMG_GRAY):
+        self._input_img_type = input_img_type
         self._config = config
 
-    def run(self, img_gray: ndarray) -> (Shape, Tuple[Tuple[int, int]]):
+    def run(self, img_gray: ndarray, input_img_type=IMG_GRAY) -> (Shape, Tuple[Tuple[int, int]]):
         try:
             if not self._config.enable:
                 return self.EMPTY_ROAD_CONTOUR, self.EMPTY_HORIZON
@@ -214,7 +215,7 @@ class RoadPart(Part):
         return [(x[0, 0], x[0, 1]) for x in list(approx[:, :])]
 
     def get_inputs_keys(self) -> List[str]:
-        return [IMG_GRAY]
+        return [self._input_img_type]
 
     def get_outputs_keys(self) -> List[str]:
         return [ROAD_CONTOUR, ROAD_HORIZON]
