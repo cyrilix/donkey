@@ -29,5 +29,5 @@ class ThreadedPart(Part):
         pass
 
     @abstractmethod
-    def run_threaded(self):
+    def run_threaded(self, **kw):
         pass
