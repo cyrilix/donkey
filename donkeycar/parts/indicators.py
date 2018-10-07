@@ -11,6 +11,7 @@ class UserModeIndicatorLight(Part):
         self._pin_red = pin_red
         self._pin_green = pin_green
         self._pin_blue = pin_blue
+        GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(pin_red, GPIO.OUT)
         GPIO.setup(pin_green, GPIO.OUT)
@@ -48,6 +49,9 @@ class UserModeIndicatorLight(Part):
             GPIO.output(self._pin_blue, GPIO.HIGH)
 
     def shutdown(self):
+        self._set_red_value(0)
+        self._set_green_value(0)
+        self._set_blue_value(0)
         GPIO.cleanup()
 
     def get_inputs_keys(self) -> List[str]:
