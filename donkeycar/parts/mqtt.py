@@ -252,6 +252,6 @@ def on_drive_message(client: Client, userdata: MqttDrive, msg: MQTTMessage):
         logger.info("Update drive mode from %s to %s", userdata.user_mode, new_value)
         userdata.user_mode = new_value
         requests.post(url='http://127.0.0.1:8887/drive',
-                      json=json.dumps({'angle': 0, 'throttle': 0, 'drive_mode': new_value}))
+                      json={'angle': 0, 'throttle': 0, 'drive_mode': new_value})
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
