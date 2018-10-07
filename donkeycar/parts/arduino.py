@@ -8,7 +8,7 @@ from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.part import ThreadedPart
 
 DRIVE_MODE_USER = 'user'
-DRIVE_MODE_PILOT = 'pilot'
+DRIVE_MODE_PILOT = 'local'
 DRIVE_MODE_LOCAL_ANGLE = 'local_angle'
 
 SHOCK = 'shock'
@@ -60,11 +60,12 @@ class SerialPart(ThreadedPart):
         if self._button_is_pushed and value < 1500:
             self._button_is_pushed = False
 
-    def run_threaded(self) -> (int, int, str, bool):
+    def run_threaded(self, user_mode: str) -> (int, int, str, bool):
+        self._user_mode = user_mode
         return self._steering_pwm, self._throttle_pwm, self._user_mode
 
     def get_inputs_keys(self) -> List[str]:
-        return []
+        return [USER_MODE]
 
     def get_outputs_keys(self) -> List[str]:
         return [PWM_STEERING,

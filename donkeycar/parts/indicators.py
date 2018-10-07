@@ -1,7 +1,8 @@
-import RPi.GPIO as GPIO
 from typing import List
 
-from donkeycar.parts.arduino import DRIVE_MODE_USER
+import RPi.GPIO as GPIO
+
+from donkeycar.parts.arduino import DRIVE_MODE_USER, DRIVE_MODE_PILOT
 from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.part import Part
 
@@ -11,6 +12,7 @@ class UserModeIndicatorLight(Part):
         self._pin_red = pin_red
         self._pin_green = pin_green
         self._pin_blue = pin_blue
+        GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(pin_red, GPIO.OUT)
         GPIO.setup(pin_green, GPIO.OUT)
@@ -21,13 +23,18 @@ class UserModeIndicatorLight(Part):
 
     def run(self, user_mode: str) -> None:
         if user_mode == DRIVE_MODE_USER:
+            self._set_red_value(0)
+            self._set_green_value(255)
+            self._set_blue_value(0)
+        elif user_mode == DRIVE_MODE_PILOT:
             self._set_red_value(255)
             self._set_green_value(0)
             self._set_blue_value(0)
         else:
             self._set_red_value(0)
-            self._set_green_value(255)
-            self._set_blue_value(0)
+            self._set_green_value(0)
+            self._set_blue_value(255)
+
 
     def _set_red_value(self, value: int):
         if value == 0:
@@ -48,6 +55,9 @@ class UserModeIndicatorLight(Part):
             GPIO.output(self._pin_blue, GPIO.HIGH)
 
     def shutdown(self):
+        self._set_red_value(0)
+        self._set_green_value(0)
+        self._set_blue_value(0)
         GPIO.cleanup()
 
     def get_inputs_keys(self) -> List[str]:

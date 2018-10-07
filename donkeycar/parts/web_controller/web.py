@@ -140,16 +140,18 @@ class LocalWebController(tornado.web.Application, ThreadedPart):
         self.listen(self.port)
         tornado.ioloop.IOLoop.instance().start()
 
-    def run_threaded(self, img_arr=None):
+    def run_threaded(self, img_arr=None, user_mode: str = DRIVE_MODE_USER):
         self.img_arr = img_arr
+        self.mode = user_mode
         return self.angle, self.throttle, self.mode, self.recording
 
-    def run(self, img_arr=None):
+    def run(self, img_arr=None, user_mode: str = DRIVE_MODE_USER):
         self.img_arr = img_arr
+        self.mode = user_mode
         return self.angle, self.throttle, self.mode, self.recording
 
     def get_inputs_keys(self) -> List[str]:
-        return [CAM_IMAGE]
+        return [CAM_IMAGE, USER_MODE]
 
     def get_outputs_keys(self) -> List[str]:
         return [USER_ANGLE, USER_THROTTLE, USER_MODE, RECORDING]
@@ -167,10 +169,14 @@ class DriveAPI(tornado.web.RequestHandler):
         and throttle of the vehicle on a the index webpage
         '''
         data = tornado.escape.json_decode(self.request.body)
-        self.application.angle = data['angle']
-        self.application.throttle = data['throttle']
-        self.application.mode = data['drive_mode']
-        self.application.recording = data['recording']
+        if 'angle' in data and data['angle']:
+            self.application.angle = data['angle']
+        if 'throttle' in data and data['throttle']:
+            self.application.throttle = data['throttle']
+        if 'drive_mode' in data and data['drive_mode']:
+            self.application.mode = data['drive_mode']
+        if 'recording' in data and data['recording']:
+            self.application.recording = data['recording']
 
 
 class VideoAPI(tornado.web.RequestHandler):
