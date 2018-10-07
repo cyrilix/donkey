@@ -22,12 +22,12 @@ class UserModeIndicatorLight(Part):
 
     def run(self, user_mode: str) -> None:
         if user_mode == DRIVE_MODE_USER:
-            self._set_red_value(255)
-            self._set_green_value(0)
-            self._set_blue_value(0)
-        else:
             self._set_red_value(0)
             self._set_green_value(255)
+            self._set_blue_value(0)
+        else:
+            self._set_red_value(255)
+            self._set_green_value(0)
             self._set_blue_value(0)
 
     def _set_red_value(self, value: int):
