@@ -40,18 +40,19 @@ class Snes8bitdoController(ThreadedPart):
             (tv_sec, tv_usec, type, code, value) = struct.unpack(__class__._FORMAT, event)
 
             if type != 0 or code != 0 or value != 0:
-                logger.info("Event type %u, code %u, value %u", type, code, value, tv_sec, tv_usec)
+                logger.info("Event type %u, code %u, value %u", type, code, value)
                 if code == 0 or code == 1:
                     self._update_axis_state(code, value)
                 else:
                     self._update_button(code, value)
             event = self._in_file.read(__class__._EVENT_SIZE)
 
-    def run_threaded(self):
+    def run_threaded(self, user_mode):
+        self._mode = user_mode
         return self._mode, self._throttle, self._angle
 
     def get_inputs_keys(self) -> List[str]:
-        return []
+        return [USER_MODE]
 
     def get_outputs_keys(self) -> List[str]:
         return [USER_MODE, SNES_CONTROLLER_THROTTLE, SNES_CONTROLLER_ANGLE]
@@ -71,8 +72,9 @@ class Snes8bitdoController(ThreadedPart):
         if code == __class__.code_bt_a:
             if value == 1:
                 self._mode = DRIVE_MODE_PILOT
-        else:
-            self._mode = DRIVE_MODE_USER
+        if code == __class__.code_bt_y:
+            if value == 1:
+                self._mode = DRIVE_MODE_USER
 
         if code == __class__.code_bt_b:
             if value == 1:
@@ -80,7 +82,7 @@ class Snes8bitdoController(ThreadedPart):
             else:
                 self._throttle = 0
 
-        if code == __class__.code_bt_y:
+        if code == __class__.code_bt_x:
             if value == 1:
                 self._throttle = -0.5
             else:
