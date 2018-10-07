@@ -1,7 +1,8 @@
-import RPi.GPIO as GPIO
 from typing import List
 
-from donkeycar.parts.arduino import DRIVE_MODE_USER
+import RPi.GPIO as GPIO
+
+from donkeycar.parts.arduino import DRIVE_MODE_USER, DRIVE_MODE_PILOT
 from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.part import Part
 
@@ -25,10 +26,15 @@ class UserModeIndicatorLight(Part):
             self._set_red_value(0)
             self._set_green_value(255)
             self._set_blue_value(0)
-        else:
+        elif user_mode == DRIVE_MODE_PILOT:
             self._set_red_value(255)
             self._set_green_value(0)
             self._set_blue_value(0)
+        else:
+            self._set_red_value(0)
+            self._set_green_value(0)
+            self._set_blue_value(255)
+
 
     def _set_red_value(self, value: int):
         if value == 0:

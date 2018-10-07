@@ -8,7 +8,7 @@ from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.part import ThreadedPart
 
 DRIVE_MODE_USER = 'user'
-DRIVE_MODE_PILOT = 'pilot'
+DRIVE_MODE_PILOT = 'local'
 DRIVE_MODE_LOCAL_ANGLE = 'local_angle'
 
 SHOCK = 'shock'
