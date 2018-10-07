@@ -167,10 +167,14 @@ class DriveAPI(tornado.web.RequestHandler):
         and throttle of the vehicle on a the index webpage
         '''
         data = tornado.escape.json_decode(self.request.body)
-        self.application.angle = data['angle']
-        self.application.throttle = data['throttle']
-        self.application.mode = data['drive_mode']
-        self.application.recording = data['recording']
+        if 'angle' in data and data['angle']:
+            self.application.angle = data['angle']
+        if 'throttle' in data and data['throttle']:
+            self.application.throttle = data['throttle']
+        if 'drive_mode' in data and data['drive_mode']:
+            self.application.mode = data['drive_mode']
+        if 'recording' in data and data['recording']:
+            self.application.recording = data['recording']
 
 
 class VideoAPI(tornado.web.RequestHandler):
