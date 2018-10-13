@@ -7,8 +7,8 @@ from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigControlle
     AngleContourDebug
 from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE
 from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart
-from donkeycar.parts.mqtt import MqttDrive, USER_MODE
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
+from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.road import RoadPart, RoadDebugPart, RoadConfigController
 from donkeycar.parts.threshold import ThresholdConfigController, ThresholdController, ThresholdValueEstimator, \
     ContoursDetector, ContourController, ContoursConfigController, ThresholdValueEstimatorConfig
@@ -48,7 +48,6 @@ class BaseVehicle(Vehicle):
         """
 
         self._configure_camera(cfg)
-        self._configure_arduino(cfg)
 
         # Convert image to gray
         self.register(ConvertToGrayPart())
@@ -68,7 +67,7 @@ class BaseVehicle(Vehicle):
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
         self.register(LocalWebController())
-        self.register(MqttDrive())
+        self._configure_arduino(cfg)
 
         self._configure_angle_part(cfg)
 

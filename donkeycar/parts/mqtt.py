@@ -9,7 +9,6 @@ from typing import Dict, Any, Callable, List
 from typing import Tuple
 
 import numpy
-import requests
 from paho.mqtt import client as mqtt
 from paho.mqtt.client import MQTTMessage, Client
 
@@ -220,38 +219,3 @@ def _on_connect(client: Client, userdata: MqttController, flags, rc: int):
     # reconnect then subscriptions will be renewed.
     client.subscribe(userdata.topic, userdata.qos)
     logger.info("Subscribe to %s topic", userdata.topic)
-
-
-class MqttDrive(MqttController):
-
-    def __init__(self, mqtt_enable: bool = True, mqtt_topic: str = 'config/drive/#',
-                 mqtt_hostname: str = 'localhost', mqtt_port: int = 1883, mqtt_client_id: str = "donkey-config-mqtt-",
-                 mqtt_username: str = None, mqtt_password: str = None, mqtt_qos: int = 0):
-        super().__init__(mqtt_client_id, mqtt_enable, mqtt_hostname, mqtt_password, mqtt_port, mqtt_qos, mqtt_topic,
-                         mqtt_username, on_message=on_drive_message)
-        self.user_mode = "user"
-
-    def run(self) -> str:
-        """
-        :return: parts
-        * user/mode
-        """
-        return self.user_mode
-
-    def get_inputs_keys(self) -> List[str]:
-        return []
-
-    def get_outputs_keys(self) -> List[str]:
-        return [USER_MODE]
-
-
-def on_drive_message(client: Client, userdata: MqttDrive, msg: MQTTMessage):
-    logger.info('new message: %s', msg.topic)
-    if msg.topic.endswith("drive/mode"):
-        new_value = msg.payload.decode('utf-8')
-        logger.info("Update drive mode from %s to %s", userdata.user_mode, new_value)
-        userdata.user_mode = new_value
-        requests.post(url='http://127.0.0.1:8887/drive',
-                      json={'angle': 0, 'throttle': 0, 'drive_mode': new_value})
-    else:
-        logger.warning("Unexpected msg for topic %s", msg.topic)

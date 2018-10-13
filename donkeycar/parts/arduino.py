@@ -23,10 +23,11 @@ class SerialPart(ThreadedPart):
 
     def __init__(self, port="/dev/ttyS0", baudrate=115200):
         self._line_regex = \
-            re.compile('(?P<timestamp>\d+),(?P<steering>\d+),(?P<throttle>\d+),(?P<user_mode>\d+),(?P<frequency>\d+)')
+            re.compile('(?P<timestamp>\d+),(?P<channel_1>\d+),(?P<channel_2>\d+),(?P<channel_3>\d+),(?P<channel_4>\d+),'
+                       '(?P<channel_5>\d+),(?P<channel_6>\d+),(?P<frequency>\d+)')
         self._serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
-        self._throttle_pwm = None
-        self._steering_pwm = None
+        self._process_channel_2 = None
+        self._process_channel_1 = None
         self._user_mode = 'user'
         self._on = True
         self._button_is_pushed = False
@@ -41,31 +42,45 @@ class SerialPart(ThreadedPart):
                     continue
                 groups = match.groupdict()
 
-                if 'steering' in groups:
-                    self._steering_pwm = int(groups['steering'])
-                if 'throttle' in groups:
-                    self._throttle_pwm = int(groups['throttle'])
-                if 'user_mode' in groups:
-                    self._process_channel3(int(groups['user_mode']))
-            except:
-                logging.exception("Unexpected error")
+                if 'channel_1' in groups:
+                    self._process_channel_1 = int(groups['channel_1'])
+                if 'channel_2' in groups:
+                    self._process_channel_2 = int(groups['channel_2'])
+                if 'channel_3' in groups:
+                    self._process_channel_3(int(groups['channel_3']))
+                if 'channel_4' in groups:
+                    self._process_channel_4(int(groups['channel_4']))
+                if 'channel_5' in groups:
+                    self._process_channel_5(int(groups['channel_5']))
+                if 'channel_6' in groups:
+                    self._process_channel_6(int(groups['channel_6']))
+            except Exception as error:
+                logging.exception("Unexpected error: %s", error)
 
-    def _process_channel3(self, value):
-        if not self._button_is_pushed and value > 1500:
-            self._button_is_pushed = True
-            if self._user_mode == DRIVE_MODE_USER:
-                self._user_mode = DRIVE_MODE_PILOT
-            elif self._user_mode == DRIVE_MODE_PILOT:
-                self._user_mode = DRIVE_MODE_USER
-        if self._button_is_pushed and value < 1500:
-            self._button_is_pushed = False
+    def _process_channel_3(self, value):
+        pass
 
-    def run_threaded(self, user_mode: str) -> (int, int, str, bool):
-        self._user_mode = user_mode
-        return self._steering_pwm, self._throttle_pwm, self._user_mode
+    def _process_channel_4(self, value):
+        pass
+
+    def _process_channel_5(self, value):
+        pass
+
+    def _process_channel_6(self, value):
+        if value > 1800:
+            if self._user_mode != DRIVE_MODE_PILOT:
+                logger.info('Update channel 6 with value %s, new user_mode: %s', value, DRIVE_MODE_PILOT)
+            self._user_mode = DRIVE_MODE_PILOT
+        else:
+            if self._user_mode != DRIVE_MODE_USER:
+                logger.info('Update channel 6 with value %s, new user_mode: %s', value, DRIVE_MODE_USER)
+            self._user_mode = DRIVE_MODE_USER
+
+    def run_threaded(self) -> (int, int, str, bool):
+        return self._process_channel_1, self._process_channel_2, self._user_mode
 
     def get_inputs_keys(self) -> List[str]:
-        return [USER_MODE]
+        return []
 
     def get_outputs_keys(self) -> List[str]:
         return [PWM_STEERING,

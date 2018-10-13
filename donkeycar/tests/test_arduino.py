@@ -34,15 +34,19 @@ class TestSerialPart:
         assert None is throttle
         assert 'user' == user_mode
 
-        steering_pwm = 678
-        throttle_pwm = 910
-        user_mode_pwm = 1112
-        arduino.put(f'12345,{steering_pwm},{throttle_pwm},{user_mode_pwm},50\n'.encode(encoding='utf-8'))
+        channel_1 = 678
+        channel_2 = 910
+        channel_3 = 1112
+        channel_4 = 1678
+        channel_5 = 1910
+        channel_6 = 112
+        arduino.put(f'12345,{channel_1},{channel_2},{channel_3},{channel_4},{channel_5},{channel_6},50\n'
+                    .encode(encoding='utf-8'))
 
         time.sleep(0.01)
         steering, throttle, user_mode = serial_part.run_threaded()
-        assert steering_pwm == steering
-        assert throttle_pwm == throttle
+        assert channel_1 == steering
+        assert channel_2 == throttle
         assert 'user' == user_mode
 
     def test_read_invalid_line(self, serial_part: SerialPart, arduino: Queue) -> None:
@@ -58,72 +62,56 @@ class TestSerialPart:
         assert None is throttle
         assert DRIVE_MODE_USER == user_mode
 
-        steering_pwm = 678
-        throttle_pwm = 910
-        user_mode_pwm = 1112
-        arduino.put(f'12345,{steering_pwm},{throttle_pwm},{user_mode_pwm},50\n'.encode(encoding='utf-8'))
+        channel_1 = 678
+        channel_2 = 910
+        channel_3 = 1112
+        channel_4 = 1678
+        channel_5 = 1910
+        channel_6 = 112
+        arduino.put(f'12345,{channel_1},{channel_2},{channel_3},{channel_4},{channel_5},{channel_6},50\n'
+                    .encode(encoding='utf-8'))
 
         time.sleep(0.001)
         steering, throttle, user_mode = serial_part.run_threaded()
-        assert steering_pwm == steering
-        assert throttle_pwm == throttle
+        assert channel_1 == steering
+        assert channel_2 == throttle
         assert DRIVE_MODE_USER == user_mode
 
         arduino.put(b'\ninvalid\n')
         time.sleep(0.001)
         steering, throttle, user_mode = serial_part.run_threaded()
-        assert steering_pwm == steering
-        assert throttle_pwm == throttle
+        assert channel_1 == steering
+        assert channel_2 == throttle
         assert DRIVE_MODE_USER == user_mode
 
-    def test_toggle_user_mode(self, serial_part: SerialPart, arduino: Queue) -> None:
+    def test_switch_user_mode(self, serial_part: SerialPart, arduino: Queue) -> None:
         _, _, user_mode = serial_part.run_threaded()
         assert DRIVE_MODE_USER == user_mode
 
-        # Button released
-        user_mode_pwm = 1050
-        arduino.put(f'12345,123,123,{user_mode_pwm},50\n'.encode(encoding='utf-8'))
+        # Switch off
+        channel_6 = 998
+        arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
         _, _, user_mode = serial_part.run_threaded()
         assert DRIVE_MODE_USER == user_mode
 
-        # Push
-        user_mode_pwm = 1600
-        arduino.put(f'12345,123,123,{user_mode_pwm},50\n'.encode(encoding='utf-8'))
+        # Switch on
+        channel_6 = 1987
+        arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
         _, _, user_mode = serial_part.run_threaded()
         assert DRIVE_MODE_PILOT == user_mode
 
-        user_mode_pwm = 1800
-        arduino.put(f'12345,123,123,{user_mode_pwm},50\n'.encode(encoding='utf-8'))
+        channel_6 = 1850
+        arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
         _, _, user_mode = serial_part.run_threaded()
         assert DRIVE_MODE_PILOT == user_mode
 
-        # Release
-        user_mode_pwm = 1100
-        arduino.put(f'12345,123,123,{user_mode_pwm},50\n'.encode(encoding='utf-8'))
-        time.sleep(0.001)
-        _, _, user_mode = serial_part.run_threaded()
-        assert DRIVE_MODE_PILOT == user_mode
-
-        # Push
-        user_mode_pwm = 1600
-        arduino.put(f'12345,123,123,{user_mode_pwm},50\n'.encode(encoding='utf-8'))
-        time.sleep(0.001)
-        _, _, user_mode = serial_part.run_threaded()
-        assert DRIVE_MODE_USER == user_mode
-
-        user_mode_pwm = 1800
-        arduino.put(f'12345,123,123,{user_mode_pwm},50\n'.encode(encoding='utf-8'))
-        time.sleep(0.001)
-        _, _, user_mode = serial_part.run_threaded()
-        assert DRIVE_MODE_USER == user_mode
-
-        # Release
-        user_mode_pwm = 1100
-        arduino.put(f'12345,123,123,{user_mode_pwm},50\n'.encode(encoding='utf-8'))
+        # Switch off
+        channel_6 = 1003
+        arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
         _, _, user_mode = serial_part.run_threaded()
         assert DRIVE_MODE_USER == user_mode
