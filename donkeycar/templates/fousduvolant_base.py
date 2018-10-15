@@ -5,7 +5,7 @@ from donkeycar import Vehicle
 from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
     AngleContourDebug
-from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE
+from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE, USER_THROTTLE, USER_ANGLE
 from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
 from donkeycar.parts.mqtt import USER_MODE
@@ -15,7 +15,7 @@ from donkeycar.parts.threshold import ThresholdConfigController, ThresholdContro
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
     ThrottleController, ThrottleConfigController, PILOT_THROTTLE
 from donkeycar.parts.transform import Lambda
-from donkeycar.parts.web_controller.web import LocalWebController, USER_ANGLE, USER_THROTTLE
+from donkeycar.parts.web_controller.web import LocalWebController
 
 logger = logging.getLogger(__name__)
 
