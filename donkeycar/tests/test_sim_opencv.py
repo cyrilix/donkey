@@ -15,7 +15,7 @@ from donkeycar.tests.conftest import _base_path
 
 @fixture(name='video')
 def fixture_video() -> Path:
-    return _base_path().joinpath("donkeycar/tests/data", 'video.mp4')
+    return _base_path().joinpath("donkeycar/tests/data", 'video2.mp4')
 
 
 @fixture(name='video_camera')

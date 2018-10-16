@@ -1,12 +1,12 @@
 import glob
 import logging
 import os
+import time
 from pathlib import Path
 from typing import List
 
 import cv2
 import numpy as np
-import time
 from PIL import Image
 
 from donkeycar.parts.part import ThreadedPart, Part

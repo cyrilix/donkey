@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -32,14 +32,17 @@ class HistogramPart(Part):
 
 
 class BlurPart(Part):
-    def __init__(self, input_key: str, output_key: str):
+    def __init__(self, input_key: str, output_key: str, kernel_size=5):
+        self._kernel_size = kernel_size
         self._input_keys = [input_key]
         self._output_keys = [output_key]
 
-    def run(self, img: ndarray, kernel_size=5) -> ndarray:
+    def run(self, img: ndarray) -> Optional[ndarray]:
         try:
-            return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
+            # return cv2.GaussianBlur(img, (self._kernel_size, self._kernel_size), 0)
             # return cv2.bilateralFilter(img.copy(), d=5, sigmaSpace=75, sigmaColor=75)
+            # return cv2.medianBlur(img.copy(), 3)
+            return cv2.blur(img.copy(), (5, 5))
         except Exception:
             logging.exception("Unexpected error")
             return None
@@ -56,16 +59,22 @@ class BoundingBoxPart(Part):
     def __init__(self, input_img_key: str, output_img_key: str):
         self._input_keys = [input_img_key, 'road/contour']
         self._output_keys = [output_img_key]
+        self._previous_bb = None
 
     def run(self, img: ndarray, road_contour) -> ndarray:
         try:
-            if not road_contour:
+            if not road_contour and not self._previous_bb:
                 logger.info('no road')
                 return img
+            if not road_contour:
+                road_contour = self._previous_bb
+
             logger.info(road_contour)
             x, y, w, h = cv2.boundingRect(np.array(road_contour))
-            if w < 20 or h < 20:
-                return img
+            if w < 20 or h < 100:
+                x, y, w, h = cv2.boundingRect(np.array(self._previous_bb))
+            else:
+                self._previous_bb = road_contour
             marge = 10
             img_bbox = img.copy()
             if y > 0:
@@ -141,6 +150,24 @@ class DilatePart(Part):
         return [IMG_DILATED]
 
 
+class MorphologyOpenPart(Part):
+    def __init__(self, input_img_key, output_img_key, kernel_size=5, iterations=2):
+        self._input = input_img_key
+        self._output_img_key = output_img_key
+        self._kernel_size = kernel_size
+        self._iterations = iterations
+        self._kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+    def run(self, img: ndarray):
+        return cv2.morphologyEx(src=img.copy(), op=cv2.MORPH_OPEN, kernel=self._kernel, iterations=self._iterations)
+
+    def get_inputs_keys(self) -> List[str]:
+        return [self._input]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [self._output_img_key]
+
+
 IMG_GRAY2 = 'img/gray2'
 
 
@@ -160,12 +187,15 @@ class Gray2Part(Part):
 
 
 class CannyPart(Part):
-    def __init__(self, input_img_key, output_img_key):
+    def __init__(self, input_img_key, output_img_key, low_threshold=50, high_threshold=150):
         self._input = input_img_key
         self._output = output_img_key
+        self._low_threshold = low_threshold
+        self._high_threshold = high_threshold
 
-    def run(self, img: ndarray, low_threshold=50, high_threshold=150):
-        return cv2.Canny(img, low_threshold, high_threshold)
+    def run(self, img: ndarray):
+        # TODO: inject threshold
+        return cv2.Canny(img, self._low_threshold, self._high_threshold)
 
     def get_inputs_keys(self) -> List[str]:
         return [self._input]

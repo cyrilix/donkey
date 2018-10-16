@@ -159,9 +159,10 @@ class RoadPart(Part):
 
             kernel = np.ones((self._config.kernel_size, self._config.kernel_size), np.uint8)
 
-            img_final = cv2.Canny(image=img_gray.copy(),
-                                  threshold1=self._config.canny_threshold1,
-                                  threshold2=self._config.canny_threshold2)
+            # img_final = cv2.Canny(image=img_gray.copy(),
+            #                      threshold1=self._config.canny_threshold1,
+            #                      threshold2=self._config.canny_threshold2)
+            img_final = img_gray.copy()
             start_horizon_line, end_horizon_line = self.search_horizon(img_final)
 
             img_final = cv2.dilate(img_final, kernel, iterations=self._config.morpho_iterations)

@@ -41,22 +41,13 @@ def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController
     vehicle.register(BoundingBoxPart(input_img_key=IMG_GRAY_RAW, output_img_key=IMG_GRAY_RAW))
     vehicle.register(HistogramPart())
     vehicle.register(Gray2Part())
-    vehicle.register(BlurPart(input_key=IMG_GRAY2, output_key='img/blur'))
-    vehicle.register(CannyPart(input_img_key='img/blur', output_img_key='img/canny'))
+    vehicle.register(BlurPart(input_key=IMG_GRAY2, output_key='img/blur', kernel_size=5))
+    vehicle.register(
+        CannyPart(input_img_key='img/blur', output_img_key='img/canny', low_threshold=50, high_threshold=150))
     # vehicle.register(HoughPart(input_img_key='img/canny', output_img_key='img/hough'))
     vehicle.register(RoadPart(road_config, input_img_type='img/canny'))
     vehicle.register(RoadDebugPart())
 
-    # vehicle.register(BoundingBoxPart(input_img_key=IMG_GRAY_RAW, output_img_key=IMG_GRAY_RAW))
-    # vehicle.register(HistogramPart())
-    # vehicle.register(GraySelectorPart())
-    # vehicle.register(ThresholdController(config=ThresholdConfigController(limit_min=180, limit_max=200,
-    # threshold_default = 190,
-    # threshold_delta = 10,
-    # threshold_dynamic = False, mqtt_enable = False)))
-    # vehicle.register(DilatePart())
-    # vehicle.register(RoadPart(road_config))
-    # vehicle.register(RoadDebugPart())
     return vehicle
 
 
