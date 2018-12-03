@@ -2,13 +2,14 @@ import glob
 import logging
 import os
 import time
+from pathlib import Path
 from typing import List
 
 import cv2
 import numpy as np
 from PIL import Image
 
-from donkeycar.parts.part import ThreadedPart
+from donkeycar.parts.part import ThreadedPart, Part
 
 CAM_IMAGE = 'cam/image_array'
 
@@ -215,6 +216,24 @@ class ImageListCamera(BaseCamera, ThreadedPart):
             self.frame = np.array(Image.open(self.image_filenames[self.i_frame]))
 
         return self.frame
+
+    def get_inputs_keys(self) -> List[str]:
+        return []
+
+    def get_outputs_keys(self) -> List[str]:
+        return [CAM_IMAGE]
+
+
+class VideoCamera(Part):
+    def __init__(self, video: Path):
+        self._video_capture = cv2.VideoCapture(str(video))
+
+    def run(self, **kw):
+        _, frame = self._video_capture.read()
+        return frame
+
+    def shutdown(self):
+        self._video_capture.release()
 
     def get_inputs_keys(self) -> List[str]:
         return []

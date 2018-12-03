@@ -8,14 +8,11 @@ from numpy import ndarray
 from paho.mqtt.client import Client, MQTTMessage
 
 from donkeycar.parts.camera import CAM_IMAGE
-from donkeycar.parts.img_process import IMG_GRAY
+from donkeycar.parts.img_process import IMG_GRAY, ConvertToGrayPart, BoundingBoxPart, HistogramPart, ThresholdPart, \
+    BlurPart, CannyPart
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
 from donkeycar.parts.threshold import Shape
-
-ROAD_CONTOUR = 'road/contour'
-ROAD_HORIZON = 'road/horizon'
-IMG_ROAD = "img/road"
 
 CFG_ROAD_ENABLE = "cfg/road/enable"
 CFG_ROAD_HORIZON_HOUGH_MIN_LINE_LENGTH = "cfg/road/horizon/hough_min_line_length"
@@ -148,19 +145,24 @@ class RoadPart(Part):
     EMPTY_ROAD_CONTOUR = []
     EMPTY_HORIZON = ((0, 0), (0, 0))
 
-    def __init__(self, config: RoadConfigController = RoadConfigController(mqtt_enable=False)):
+    ROAD_CONTOUR = 'road/contour'
+    ROAD_HORIZON = 'road/horizon'
+
+    def __init__(self, config: RoadConfigController = RoadConfigController(mqtt_enable=False), input_img_type=IMG_GRAY):
+        self._input_img_type = input_img_type
         self._config = config
 
-    def run(self, img_gray: ndarray) -> (Shape, Tuple[Tuple[int, int]]):
+    def run(self, img_gray: ndarray, input_img_type=IMG_GRAY) -> (Shape, Tuple[Tuple[int, int]]):
         try:
             if not self._config.enable:
                 return self.EMPTY_ROAD_CONTOUR, self.EMPTY_HORIZON
 
             kernel = np.ones((self._config.kernel_size, self._config.kernel_size), np.uint8)
 
-            img_final = cv2.Canny(image=img_gray.copy(),
-                                  threshold1=self._config.canny_threshold1,
-                                  threshold2=self._config.canny_threshold2)
+            # img_final = cv2.Canny(image=img_gray.copy(),
+            #                      threshold1=self._config.canny_threshold1,
+            #                      threshold2=self._config.canny_threshold2)
+            img_final = img_gray.copy()
             start_horizon_line, end_horizon_line = self.search_horizon(img_final)
 
             img_final = cv2.dilate(img_final, kernel, iterations=self._config.morpho_iterations)
@@ -191,7 +193,10 @@ class RoadPart(Part):
                 ys.append((y1 + y2) / 2)
 
         import statistics
-        y = int(statistics.mean(ys))
+        if ys:
+            y = int(statistics.mean(ys))
+        else:
+            y = 0
         return (0, y), (edges.shape[1], y)
 
     def _detect_road_contour(self, img_inversed: ndarray) -> Shape:
@@ -211,18 +216,19 @@ class RoadPart(Part):
         return [(x[0, 0], x[0, 1]) for x in list(approx[:, :])]
 
     def get_inputs_keys(self) -> List[str]:
-        return [IMG_GRAY]
+        return [self._input_img_type]
 
     def get_outputs_keys(self) -> List[str]:
-        return [ROAD_CONTOUR, ROAD_HORIZON]
+        return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON]
 
 
 class RoadDebugPart(Part):
+    IMG_ROAD = "img/road"
+
     def run(self, road_shape: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]], img: ndarray) -> ndarray:
         try:
             if not road_shape:
                 return np.zeros(img.shape, dtype=img.dtype)
-
             mask = np.zeros(img.shape, np.uint8)
 
             mask = cv2.drawContours(image=mask, contours=[np.array(road_shape)], contourIdx=0,
@@ -238,7 +244,51 @@ class RoadDebugPart(Part):
             return np.zeros(img.shape, dtype=img.dtype)
 
     def get_inputs_keys(self) -> List[str]:
-        return [ROAD_CONTOUR, ROAD_HORIZON, CAM_IMAGE]
+        return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON, CAM_IMAGE]
 
     def get_outputs_keys(self) -> List[str]:
-        return [IMG_ROAD]
+        return [RoadDebugPart.IMG_ROAD]
+
+
+class ComponentRoadPart(Part):
+
+    def __init__(self, input_keys=[CAM_IMAGE]):
+        self._input_keys = input_keys
+        self._gray_part = ConvertToGrayPart()
+        self._bbox_part = BoundingBoxPart(input_img_key='', output_img_key='')
+        self._histogram_part = HistogramPart()
+        self._gray2_part = ThresholdPart()
+        self._blur_part = BlurPart(input_key="", output_key="")
+        self._canny_part = CannyPart(input_img_key='', output_img_key='')
+        road_config = RoadConfigController(enable=True,
+                                           canny_threshold1=180,
+                                           canny_threshold2=200,
+                                           kernel_size=4,
+                                           mqtt_enable=False)
+        self._road_part = RoadPart(config=road_config, input_img_type='')
+        self._road_debug_part = RoadDebugPart()
+        self._last_road_contour = None
+
+    def run(self, img: np.ndarray):
+        try:
+            img_gray = self._gray_part.run(ndarray)
+            bbox = self._bbox_part.run(img_gray, road_contour=self._last_road_contour)
+            histogram = self._histogram_part.run(bbox)
+            gray2 = self._gray2_part.run(histogram)
+            blur = self._blur_part.run(gray2)
+            canny = self._canny_part.run(blur)
+            road_contour, horizon = self._road_part.run(canny)
+            if road_contour:
+                self._last_road_contour = road_contour
+            road_debug = self._road_debug_part.run(road_shape=road_contour, horizon=horizon, img=img)
+            return img_gray, gray2, blur, canny, road_contour, horizon, road_debug
+        except:
+            logging.exception("Unexpected error")
+            return np.zeros(img.shape, dtype=img.dtype)
+
+    def get_inputs_keys(self) -> List[str]:
+        return self._input_keys
+
+    def get_outputs_keys(self) -> List[str]:
+        return [ConvertToGrayPart.IMG_GRAY_RAW, ThresholdPart.IMG_THRESHOLD, BlurPart.IMG_BLUR, CannyPart.IMG_CANNY,
+                RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON, RoadDebugPart.IMG_ROAD]

@@ -11,10 +11,19 @@ DRIVE_MODE_USER = 'user'
 DRIVE_MODE_PILOT = 'local'
 DRIVE_MODE_LOCAL_ANGLE = 'local_angle'
 
+USER_THROTTLE = 'user/throttle'
+USER_ANGLE = 'user/angle'
+
 SHOCK = 'shock'
 
 PWM_THROTTLE = 'pwm/throttle'
 PWM_STEERING = 'pwm/steering'
+
+MIN_PWM_ANGLE = 960.0
+MAX_PWM_ANGLE = 1980.0
+
+MIN_PWM_THROTTLE = 972.0
+MAX_PWM_THROTTLE = 1954.0
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +35,8 @@ class SerialPart(ThreadedPart):
             re.compile('(?P<timestamp>\d+),(?P<channel_1>\d+),(?P<channel_2>\d+),(?P<channel_3>\d+),(?P<channel_4>\d+),'
                        '(?P<channel_5>\d+),(?P<channel_6>\d+),(?P<frequency>\d+)')
         self._serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
-        self._process_channel_2 = None
-        self._process_channel_1 = None
+        self._user_angle = 0.0
+        self._user_throttle = 0.0
         self._user_mode = 'user'
         self._on = True
         self._button_is_pushed = False
@@ -43,9 +52,9 @@ class SerialPart(ThreadedPart):
                 groups = match.groupdict()
 
                 if 'channel_1' in groups:
-                    self._process_channel_1 = int(groups['channel_1'])
+                    self._process_channel_1(float(groups['channel_1']))
                 if 'channel_2' in groups:
-                    self._process_channel_2 = int(groups['channel_2'])
+                    self._process_channel_2(float(groups['channel_2']))
                 if 'channel_3' in groups:
                     self._process_channel_3(int(groups['channel_3']))
                 if 'channel_4' in groups:
@@ -56,6 +65,20 @@ class SerialPart(ThreadedPart):
                     self._process_channel_6(int(groups['channel_6']))
             except Exception as error:
                 logging.exception("Unexpected error: %s", error)
+
+    def _process_channel_1(self, value: float):
+        if value < MIN_PWM_ANGLE:
+            value = MIN_PWM_ANGLE
+        elif value > MAX_PWM_ANGLE:
+            value = MAX_PWM_ANGLE
+        self._user_angle = ((value - MIN_PWM_ANGLE) / (MAX_PWM_ANGLE - MIN_PWM_ANGLE)) * 2.0 - 1.0
+
+    def _process_channel_2(self, value: float):
+        if value < MIN_PWM_THROTTLE:
+            value = MIN_PWM_THROTTLE
+        elif value > MAX_PWM_THROTTLE:
+            value = MAX_PWM_THROTTLE
+        self._user_throttle = ((value - MIN_PWM_THROTTLE) / (MAX_PWM_THROTTLE - MIN_PWM_THROTTLE)) * 2.0 - 1.0
 
     def _process_channel_3(self, value):
         pass
@@ -77,14 +100,14 @@ class SerialPart(ThreadedPart):
             self._user_mode = DRIVE_MODE_USER
 
     def run_threaded(self) -> (int, int, str, bool):
-        return self._process_channel_1, self._process_channel_2, self._user_mode
+        return self._user_angle, self._user_throttle, self._user_mode
 
     def get_inputs_keys(self) -> List[str]:
         return []
 
     def get_outputs_keys(self) -> List[str]:
-        return [PWM_STEERING,
-                PWM_THROTTLE,
+        return [USER_ANGLE,
+                USER_THROTTLE,
                 USER_MODE
                 ]
 
