@@ -2,6 +2,7 @@ from pathlib import Path
 from time import sleep
 
 import cv2
+import pytest
 from pytest import fixture
 
 from donkeycar import Vehicle
@@ -52,6 +53,7 @@ def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController
     return vehicle
 
 
+@pytest.mark.skip
 def test_renqder(vehicle: Vehicle) -> None:
     while True:
         vehicle.update_parts()

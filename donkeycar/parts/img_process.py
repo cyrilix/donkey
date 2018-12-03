@@ -21,7 +21,7 @@ class HistogramPart(Part):
 
     def run(self, img_gray: ndarray) -> Optional[ndarray]:
         try:
-            clahe = cv2.createCLAHE(clipLimit=self._clip_limit, tileGridSize=self._clip_limit)
+            clahe = cv2.createCLAHE(clipLimit=self._clip_limit, tileGridSize=self._tile_grid_size)
             return clahe.apply(img_gray.copy())
         except Exception:
             logging.exception("Unexpected error")
@@ -73,7 +73,7 @@ class BoundingBoxPart(Part):
 
             logger.info(road_contour)
             x, y, w, h = cv2.boundingRect(np.array(road_contour))
-            if w < 20 or h < 100:
+            if self._previous_bb and (w < 20 or h < 100):
                 x, y, w, h = cv2.boundingRect(np.array(self._previous_bb))
             else:
                 self._previous_bb = road_contour
@@ -109,12 +109,12 @@ class ConvertToGrayPart(Part):
     """
     IMG_GRAY_RAW = 'img/gray/raw'
 
-    def run(self, image_array: ndarray) -> ndarray:
+    def run(self, img: ndarray) -> ndarray:
         try:
-            return cv2.cvtColor(image_array.copy(), cv2.COLOR_RGB2GRAY)
+            return cv2.cvtColor(img.copy(), cv2.COLOR_RGB2GRAY)
         except Exception:
             logging.exception("Unexpected error")
-            return np.zeros(image_array.shape)
+            return np.zeros(img.shape)
 
     def get_inputs_keys(self) -> List[str]:
         return [CAM_IMAGE]
@@ -199,7 +199,7 @@ class CannyPart(Part):
         self._low_threshold = low_threshold
         self._high_threshold = high_threshold
 
-    def run(self, img: ndarray):
+    def run(self, img: ndarray) -> ndarray:
         # TODO: inject threshold
         return cv2.Canny(img, self._low_threshold, self._high_threshold)
 

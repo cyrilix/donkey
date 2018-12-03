@@ -52,8 +52,8 @@ class BaseVehicle(Vehicle):
         self.register(LocalWebController())
         self._configure_arduino(cfg)
 
-        self._configure_angle_part(cfg)
-        self._configure_throttle_controller(cfg)
+        #self._configure_angle_part(cfg)
+        #self._configure_throttle_controller(cfg)
 
         # Choose what inputs should change the car.
         def drive_mode(mode,
@@ -77,30 +77,6 @@ class BaseVehicle(Vehicle):
         self._configure_indicators(cfg)
 
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
-
-    def _configure_angle_part(self, cfg):
-        config = AngleConfigController(number_centroids_to_use=cfg.NB_CONTOURS_TO_USE,
-                                       out_zone_percent=cfg.OUT_ZONE_PERCENT,
-                                       central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
-        self.register(config)
-        self.register(AngleProcessorMiddleLine(image_resolution=cfg.CAMERA_RESOLUTION,
-                                               angle_config_controller=config))
-        self.register(AngleDebug(config=config))
-        self.register(AngleContourDebug(config=config))
-
-    def _configure_throttle_controller(self, cfg):
-        config_controller = ThrottleConfigController(stop_on_shock=cfg.THROTTLE_STOP_ON_SHOCK,
-                                                     min_speed=cfg.THROTTLE_MIN_SPEED,
-                                                     max_speed=cfg.THROTTLE_MAX_SPEED,
-                                                     safe_angle=cfg.THROTTLE_SAFE_ANGLE,
-                                                     dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE,
-                                                     use_steering=cfg.THROTTLE_STEERING_ENABLE)
-        self.register(config_controller)
-        self.register(ThrottleController(throttle_config_controller=config_controller,
-                                         fix_controller=ThrottleControllerFixedSpeed(
-                                             throttle_config_controller=config_controller),
-                                         steering_controller=ThrottleControllerSteeringBased(
-                                             throttle_config_controller=config_controller)))
 
     def _configure_arduino(self, cfg):
         self.register(part=SerialPart(port=cfg.ARDUINO_SERIAL_PORT, baudrate=cfg.ARDUINO_SERIAL_BAUDRATE))

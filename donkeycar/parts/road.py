@@ -269,9 +269,9 @@ class ComponentRoadPart(Part):
         self._road_debug_part = RoadDebugPart()
         self._last_road_contour = None
 
-    def run(self, img: np.ndarray):
+    def run(self, img: np.ndarray) -> (ndarray, ndarray, ndarray,  ndarray, Shape, Tuple[Tuple[int, int]], ndarray):
         try:
-            img_gray = self._gray_part.run(ndarray)
+            img_gray = self._gray_part.run(img)
             bbox = self._bbox_part.run(img_gray, road_contour=self._last_road_contour)
             histogram = self._histogram_part.run(bbox)
             gray2 = self._gray2_part.run(histogram)
