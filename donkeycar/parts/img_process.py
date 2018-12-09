@@ -66,12 +66,12 @@ class BoundingBoxPart(Part):
     def run(self, img: ndarray, road_contour) -> Optional[ndarray]:
         try:
             if not road_contour and not self._previous_bb:
-                logger.info('no road')
+                logger.debug('no road')
                 return img
             if not road_contour:
                 road_contour = self._previous_bb
 
-            logger.info(road_contour)
+            logger.debug(road_contour)
             x, y, w, h = cv2.boundingRect(np.array(road_contour))
             if self._previous_bb and (w < 20 or h < 100):
                 x, y, w, h = cv2.boundingRect(np.array(self._previous_bb))
