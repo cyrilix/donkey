@@ -9,6 +9,7 @@ from paho.mqtt.client import Client, MQTTMessage
 from donkeycar.parts.camera import CAM_IMAGE
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
+from donkeycar.parts.road import RoadPart
 from donkeycar.parts.threshold import CONTOURS_CENTROIDS, Shape, CONTOURS_SHAPES, IMG_CONTOURS
 
 IMG_ANGLE_ZONE = 'img/angle_zone'
@@ -73,6 +74,44 @@ def _on_angle_config_message(_: Client, userdata: AngleConfigController, msg: MQ
         userdata.central_zone_percent = new_value
     else:
         logger.warning("Unexpected msg for topic %s", msg.topic)
+
+
+class CentroidToAngleProcessor:
+
+    def __init__(self, img_resolution: Tuple[int, int], out_zone_percent: float, central_zone_percent: float):
+        self.central_zone_percent = central_zone_percent
+        self.out_zone_percent = out_zone_percent
+        self._resolution = img_resolution
+
+    def compute_angle_for_centroid(self, line: float) -> float:
+        # Position in percent from the left of the middle line
+        pos_in_percent = line * 100 / self._resolution[1]
+        logger.debug("Line position from left = %s%% (cx=%s, resolution=%s)", pos_in_percent, line, self._resolution[1])
+
+        # convert between -1 and 1
+        angle = (pos_in_percent * 2 - 100) / 100
+
+        logger.debug("Computed angle: %s", angle)
+        out_zone_delta = self.out_zone_percent * 100 / self._resolution[1] / 100
+        logger.debug("Outer zone delta: %s", out_zone_delta)
+        middle_zone_delta = self.central_zone_percent * 100 / self._resolution[1] / 100
+        logger.debug("Middle zone delta: %s", out_zone_delta)
+
+        logger.debug("Angle fixed: %s", str(angle))
+        if angle < -1.0 + out_zone_delta:
+            # zone (1)
+            angle = -1.0
+        elif 0 > angle > - middle_zone_delta:
+            # zone (3) left
+            angle = 0.0
+        elif 0 < angle < middle_zone_delta:
+            # zone (3) right
+            angle = 0.0
+        elif angle > 1.0 - out_zone_delta:
+            # zone (2)
+            angle = 1.0
+        logger.debug("Angle fixed: %s", str(angle))
+        return angle
 
 
 class AngleProcessorMiddleLine(Part):
@@ -266,3 +305,20 @@ class AngleContourDebug(Part):
 
     def get_outputs_keys(self) -> List[str]:
         return [IMG_ANGLE_CONTOURS]
+
+
+class AngleRoadPart(Part):
+    def __init__(self, image_resolution=(120, 160), angle_config_controller=AngleConfigController(mqtt_enable=False)):
+        self.angle_processor = CentroidToAngleProcessor(img_resolution=image_resolution, )
+
+    def run(self, contour: Shape, horizon: Tuple[Tuple[int, int]]):
+        # TODO: transform Shape to Array[Array]
+        (x,y),(MA,ma),angle = cv2.fitEllipse(contour)
+
+        pass
+
+    def get_inputs_keys(self) -> List[str]:
+        return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [PILOT_ANGLE]
