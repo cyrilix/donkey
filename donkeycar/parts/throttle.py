@@ -88,25 +88,15 @@ def _on_throttle_config_message(_: Client, userdata: ThrottleConfigController, m
 
 class ThrottleControllerFixedSpeed(Part):
 
-    def __init__(self, throttle_config_controller: ThrottleConfigController):
-        self._throttle_config_controller = throttle_config_controller
-        self._shock = False
+    def __init__(self, speed: float):
 
-    def run(self, shock: bool = False) -> float:
-        if not self._throttle_config_controller.stop_on_shock:
-            return self._throttle_config_controller.min_speed
+        self.speed = speed
 
-        if shock:
-            logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
-            self._shock = shock
-
-        if self._shock:
-            return 0.0
-        else:
-            return self._throttle_config_controller.min_speed
+    def run(self) -> float:
+        return self.speed
 
     def get_inputs_keys(self) -> List[str]:
-        return [SHOCK]
+        return []
 
     def get_outputs_keys(self) -> List[str]:
         return [PILOT_THROTTLE]

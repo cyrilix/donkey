@@ -53,7 +53,7 @@ class BaseVehicle(Vehicle):
         self._configure_arduino(cfg)
 
         #self._configure_angle_part(cfg)
-        #self._configure_throttle_controller(cfg)
+        self._configure_throttle_controller(cfg)
 
         # Choose what inputs should change the car.
         def drive_mode(mode,
@@ -89,3 +89,6 @@ class BaseVehicle(Vehicle):
 
     def _configure_indicators(self, cfg):
         pass
+
+    def _configure_throttle_controller(self, cfg):
+        self.register(ThrottleControllerFixedSpeed(speed=cfg.THROTTLE_MIN_SPEED))
