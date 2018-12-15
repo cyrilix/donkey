@@ -326,7 +326,7 @@ class AngleRoadPart(Part):
             angle = self.angle_processor.compute_angle_for_centroid(x)
             logger.info(ellipse)
         logger.info('angle: %s', angle)
-        return angle,
+        return angle, ellipse
 
     def get_inputs_keys(self) -> List[str]:
         return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON]
