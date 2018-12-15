@@ -4,7 +4,7 @@ import platform
 from donkeycar import Vehicle
 from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
-    AngleContourDebug
+    AngleContourDebug, AngleRoadPart
 from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE, USER_THROTTLE, USER_ANGLE
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
 from donkeycar.parts.mqtt import USER_MODE
@@ -52,7 +52,7 @@ class BaseVehicle(Vehicle):
         self.register(LocalWebController())
         self._configure_arduino(cfg)
 
-        #self._configure_angle_part(cfg)
+        self._configure_angle_part(cfg)
         self._configure_throttle_controller(cfg)
 
         # Choose what inputs should change the car.
@@ -92,3 +92,11 @@ class BaseVehicle(Vehicle):
 
     def _configure_throttle_controller(self, cfg):
         self.register(ThrottleControllerFixedSpeed(speed=cfg.THROTTLE_MIN_SPEED))
+
+    def _configure_angle_part(self, cfg):
+        config = AngleConfigController(number_centroids_to_use=cfg.NB_CONTOURS_TO_USE,
+                                       out_zone_percent=cfg.OUT_ZONE_PERCENT,
+                                       central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
+        self.register(config)
+        self.register(AngleRoadPart(image_resolution=cfg.CAMERA_RESOLUTION, angle_config_controller=config))
+        # self.register(AngleDebug(config=config))

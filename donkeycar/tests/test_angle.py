@@ -2,8 +2,9 @@ import logging
 
 import pytest
 from paho.mqtt.client import Client
+from pytest import fixture
 
-from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController
+from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleRoadPart
 from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
 
 logger = logging.getLogger(__name__)
@@ -107,3 +108,35 @@ class TestAngleConfigController:
         assert number_centroids_to_use == 5
         assert out_zone_percent == 50
         assert central_zone_percent == 60
+
+
+class TestAngleRoadPart:
+
+    @fixture(name='part')
+    def fixture_part(self) -> AngleRoadPart:
+        part = AngleRoadPart()
+        yield part
+        part.shutdown()
+
+    def test_straight_ahead(self, part: AngleRoadPart):
+        contour = [(0, 31),
+                   (0, 119),
+                   (43, 119),
+                   (45, 110),
+                   (46, 119),
+                   (66, 119),
+                   (67, 100),
+                   (68, 119),
+                   (159, 119),
+                   (158, 42),
+                   (87, 18),
+                   (73, 22),
+                   (71, 53),
+                   (61, 47),
+                   (64, 20)]
+
+        horizon = ((0, 10), (160, 10))
+        angle = part.run(contour, horizon)
+        logger.info('angle: %s', angle)
+        assert angle == 0.0
+

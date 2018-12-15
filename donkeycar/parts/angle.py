@@ -78,9 +78,9 @@ def _on_angle_config_message(_: Client, userdata: AngleConfigController, msg: MQ
 
 class CentroidToAngleProcessor:
 
-    def __init__(self, img_resolution: Tuple[int, int], out_zone_percent: float, central_zone_percent: float):
-        self.central_zone_percent = central_zone_percent
-        self.out_zone_percent = out_zone_percent
+    def __init__(self, img_resolution: Tuple[int, int],
+                 angle_config_controller: AngleConfigController):
+        self._angle_config_controller = angle_config_controller
         self._resolution = img_resolution
 
     def compute_angle_for_centroid(self, line: float) -> float:
@@ -92,9 +92,9 @@ class CentroidToAngleProcessor:
         angle = (pos_in_percent * 2 - 100) / 100
 
         logger.debug("Computed angle: %s", angle)
-        out_zone_delta = self.out_zone_percent * 100 / self._resolution[1] / 100
+        out_zone_delta = self._angle_config_controller.out_zone_percent * 100 / self._resolution[1] / 100
         logger.debug("Outer zone delta: %s", out_zone_delta)
-        middle_zone_delta = self.central_zone_percent * 100 / self._resolution[1] / 100
+        middle_zone_delta = self._angle_config_controller.central_zone_percent * 100 / self._resolution[1] / 100
         logger.debug("Middle zone delta: %s", out_zone_delta)
 
         logger.debug("Angle fixed: %s", str(angle))
@@ -309,13 +309,13 @@ class AngleContourDebug(Part):
 
 class AngleRoadPart(Part):
     def __init__(self, image_resolution=(120, 160), angle_config_controller=AngleConfigController(mqtt_enable=False)):
-        self.angle_processor = CentroidToAngleProcessor(img_resolution=image_resolution, )
+        self.angle_processor = CentroidToAngleProcessor(img_resolution=image_resolution,
+                                                        angle_config_controller=angle_config_controller)
 
-    def run(self, contour: Shape, horizon: Tuple[Tuple[int, int]]):
-        # TODO: transform Shape to Array[Array]
-        (x,y),(MA,ma),angle = cv2.fitEllipse(contour)
-
-        pass
+    def run(self, contour: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]]):
+        (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
+        logger.info(cv2.fitEllipse(np.asarray(contour)))
+        return self.angle_processor.compute_angle_for_centroid(x)
 
     def get_inputs_keys(self) -> List[str]:
         return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON]
