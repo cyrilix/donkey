@@ -313,9 +313,12 @@ class AngleRoadPart(Part):
                                                         angle_config_controller=angle_config_controller)
 
     def run(self, contour: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]]):
-        (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
-        logger.info(cv2.fitEllipse(np.asarray(contour)))
-        return self.angle_processor.compute_angle_for_centroid(x)
+        angle = 0.00
+        if len(contour) >= 5:
+            (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
+            angle = self.angle_processor.compute_angle_for_centroid(x)
+        logger.info('angle: %s', angle)
+        return angle
 
     def get_inputs_keys(self) -> List[str]:
         return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON]

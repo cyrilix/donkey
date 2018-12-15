@@ -140,3 +140,13 @@ class TestAngleRoadPart:
         logger.info('angle: %s', angle)
         assert angle == 0.0
 
+    def test_missing_point_to_process(self, part: AngleRoadPart):
+        contour = [(0, 31),
+                   (0, 119),
+                   (43, 119),
+                   (64, 20)]
+        horizon = ((0, 10), (160, 10))
+        angle = part.run(contour, horizon)
+        logger.info('angle: %s', angle)
+        assert angle == 0.0
+
