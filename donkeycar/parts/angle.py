@@ -1,5 +1,6 @@
 import logging
-from typing import List, Tuple
+from collections import namedtuple
+from typing import List, Tuple, Optional
 
 import cv2
 import numpy as np
@@ -9,7 +10,7 @@ from paho.mqtt.client import Client, MQTTMessage
 from donkeycar.parts.camera import CAM_IMAGE
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
-from donkeycar.parts.road import RoadPart
+from donkeycar.parts.road import RoadPart, RoadDebugPart
 from donkeycar.parts.threshold import CONTOURS_CENTROIDS, Shape, CONTOURS_SHAPES, IMG_CONTOURS
 
 IMG_ANGLE_ZONE = 'img/angle_zone'
@@ -307,21 +308,52 @@ class AngleContourDebug(Part):
         return [IMG_ANGLE_CONTOURS]
 
 
+Ellipse = namedtuple('Ellipse', ('center', 'axes', 'angle'))
+
+
 class AngleRoadPart(Part):
+    ROAD_ELLIPSE = 'road/ellipse'
+
     def __init__(self, image_resolution=(120, 160), angle_config_controller=AngleConfigController(mqtt_enable=False)):
         self.angle_processor = CentroidToAngleProcessor(img_resolution=image_resolution,
                                                         angle_config_controller=angle_config_controller)
 
-    def run(self, contour: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]]):
+    def run(self, contour: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]]) -> (float, Optional[Ellipse]):
         angle = 0.00
+        ellipse = None
         if len(contour) >= 5:
             (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
+            ellipse = Ellipse((int(x), int(y)), (int(MA/5), int(ma/5)), angle)
+            logger.info('Angle from ellipse: %s', (angle - 90) * -1)
             angle = self.angle_processor.compute_angle_for_centroid(x)
+            logger.info(ellipse)
         logger.info('angle: %s', angle)
-        return angle
+        return angle, ellipse
 
     def get_inputs_keys(self) -> List[str]:
         return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON]
 
     def get_outputs_keys(self) -> List[str]:
-        return [PILOT_ANGLE]
+        return [PILOT_ANGLE, self.ROAD_ELLIPSE]
+
+
+class RoadEllipseDebugPart(Part):
+    IMG_ROAD_ELLIPSE = 'img/road_ellipse'
+
+    def run(self, img: ndarray, road_ellipse: Ellipse) -> ndarray:
+        if not road_ellipse:
+            return img
+        img_debug = cv2.ellipse(img.copy(), center=road_ellipse.center, axes=road_ellipse.axes,
+                                angle=road_ellipse.angle, startAngle=0, endAngle=360, color=(20, 255, 100),
+                                thickness=2)
+        img_debug = cv2.circle(img_debug.copy(), center=road_ellipse.center, radius=5, color=(255, 0, 0))
+        return img_debug
+
+    def get_inputs_keys(self) -> List[str]:
+        return [RoadDebugPart.IMG_ROAD, AngleRoadPart.ROAD_ELLIPSE]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [RoadEllipseDebugPart.IMG_ROAD_ELLIPSE]
+
+
+

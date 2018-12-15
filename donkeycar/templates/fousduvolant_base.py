@@ -3,14 +3,14 @@ import platform
 
 from donkeycar import Vehicle
 from donkeycar.parts.actuator import ANGLE, THROTTLE
-from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleDebug, PILOT_ANGLE, \
-    AngleContourDebug, AngleRoadPart
+from donkeycar.parts.angle import AngleConfigController, PILOT_ANGLE, \
+    AngleRoadPart, RoadEllipseDebugPart
 from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE, USER_THROTTLE, USER_ANGLE
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
 from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.road import ComponentRoadPart
-from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
-    ThrottleController, ThrottleConfigController, PILOT_THROTTLE
+from donkeycar.parts.throttle import ThrottleControllerFixedSpeed, \
+    PILOT_THROTTLE
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import LocalWebController
 
@@ -99,4 +99,4 @@ class BaseVehicle(Vehicle):
                                        central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
         self.register(config)
         self.register(AngleRoadPart(image_resolution=cfg.CAMERA_RESOLUTION, angle_config_controller=config))
-        # self.register(AngleDebug(config=config))
+        self.register(RoadEllipseDebugPart())
