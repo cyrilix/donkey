@@ -6,10 +6,11 @@ import pytest
 from pytest import fixture
 
 from donkeycar import Vehicle
+from donkeycar.parts.angle import RoadEllipseDebugPart, AngleRoadPart
 from donkeycar.parts.camera import VideoCamera
 from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart, BlurPart, BoundingBoxPart, \
-    DilatePart
-from donkeycar.parts.road import RoadDebugPart, RoadPart, RoadConfigController
+    DilatePart, ThresholdPart, CannyPart
+from donkeycar.parts.road import RoadDebugPart, RoadPart, RoadConfigController, ComponentRoadPart
 from donkeycar.parts.threshold import ThresholdController, ThresholdConfigController
 from donkeycar.tests.conftest import _base_path
 
@@ -39,19 +40,9 @@ def fixture_road_config() -> RoadConfigController:
 def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController) -> Vehicle:
     vehicle = Vehicle()
     vehicle.register(video_camera)
-    vehicle.register(ConvertToGrayPart())
-    vehicle.register(BlurPart(input_key=ConvertToGrayPart.IMG_GRAY_RAW, output_key=ConvertToGrayPart.IMG_GRAY_RAW))
-    vehicle.register(BoundingBoxPart(input_img_key=ConvertToGrayPart.IMG_GRAY_RAW,
-                                     output_img_key=ConvertToGrayPart.IMG_GRAY_RAW))
-    vehicle.register(HistogramPart())
-    vehicle.register(GraySelectorPart())
-    vehicle.register(ThresholdController(config=ThresholdConfigController(limit_min=180, limit_max=200,
-                                                                          threshold_default=190,
-                                                                          threshold_delta=10,
-                                                                          threshold_dynamic=False, mqtt_enable=False)))
-    vehicle.register(DilatePart())
-    vehicle.register(RoadPart(road_config))
-    vehicle.register(RoadDebugPart())
+    vehicle.register(ComponentRoadPart())
+    vehicle.register(AngleRoadPart())
+    vehicle.register(RoadEllipseDebugPart())
     return vehicle
 
 
@@ -59,14 +50,18 @@ def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController
 def test_render(vehicle: Vehicle) -> None:
     while True:
         vehicle.update_parts()
-        gray = vehicle.mem.get(vehicle.parts[5]['outputs'])[0]
-        threshold = vehicle.mem.get(vehicle.parts[6]['outputs'])[0]
-        dilate = vehicle.mem.get(vehicle.parts[7]['outputs'])[0]
-        road = vehicle.mem.get(vehicle.parts[9]['outputs'])[0]
+        gray = vehicle.mem.get([ConvertToGrayPart.IMG_GRAY_RAW])[0]
+        threshold = vehicle.mem.get([ThresholdPart.IMG_THRESHOLD])[0]
+        canny = vehicle.mem.get([CannyPart.IMG_CANNY])[0]
+        road = vehicle.mem.get([RoadDebugPart.IMG_ROAD])[0]
+        road_ellipse = vehicle.mem.get([RoadEllipseDebugPart.IMG_ROAD_ELLIPSE])[0]
         cv2.imshow('gray', gray)
         cv2.imshow('threshold', threshold)
-        cv2.imshow('dilate', dilate)
+        cv2.imshow('canny', canny)
         cv2.imshow('road', road)
+        if road_ellipse is not None:
+            cv2.imshow('road_ellipse', road_ellipse)
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 

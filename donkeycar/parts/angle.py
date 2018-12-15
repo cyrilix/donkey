@@ -1,6 +1,6 @@
 import logging
 from collections import namedtuple
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import cv2
 import numpy as np
@@ -318,11 +318,13 @@ class AngleRoadPart(Part):
         self.angle_processor = CentroidToAngleProcessor(img_resolution=image_resolution,
                                                         angle_config_controller=angle_config_controller)
 
-    def run(self, contour: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]]) -> (float, Ellipse):
+    def run(self, contour: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]]) -> (float, Optional[Ellipse]):
         angle = 0.00
+        ellipse = None
         if len(contour) >= 5:
             (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
-            ellipse = Ellipse((x, y), (MA, ma), angle)
+            ellipse = Ellipse((int(x), int(y)), (int(MA/5), int(ma/5)), angle)
+            logger.info('Angle from ellipse: %s', (angle - 90) * -1)
             angle = self.angle_processor.compute_angle_for_centroid(x)
             logger.info(ellipse)
         logger.info('angle: %s', angle)
@@ -342,9 +344,9 @@ class RoadEllipseDebugPart(Part):
         if not road_ellipse:
             return img
         img_debug = cv2.ellipse(img.copy(), center=road_ellipse.center, axes=road_ellipse.axes,
-                                angle=road_ellipse.angle, startAngle=0, endAngle=0, color=(20, 255, 0),
+                                angle=road_ellipse.angle, startAngle=0, endAngle=360, color=(20, 255, 100),
                                 thickness=2)
-        img_debug = cv2.circle(img_debug, center=road_ellipse.center, radius=5, color=(255, 0, 0))
+        img_debug = cv2.circle(img_debug.copy(), center=road_ellipse.center, radius=5, color=(255, 0, 0))
         return img_debug
 
     def get_inputs_keys(self) -> List[str]:
