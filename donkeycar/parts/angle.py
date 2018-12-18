@@ -1,4 +1,5 @@
 import logging
+import math
 from collections import namedtuple
 from typing import List, Tuple, Optional
 
@@ -324,8 +325,16 @@ class AngleRoadPart(Part):
         if len(contour) >= 5:
             (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
             ellipse = Ellipse((int(x), int(y)), (int(MA/5), int(ma/5)), angle)
-            logger.info('Angle from ellipse: %s', (angle - 90) * -1)
-            angle = self.angle_processor.compute_angle_for_centroid(x)
+            angle = (angle - 90) * -1
+            if angle > 90:
+                angle = 90
+            elif angle < -90:
+                angle = -90
+            angle = angle * 45.0 / 100.0 / 5
+            if angle > 1:
+                angle = 1
+            if angle < -1:
+                angle = -1
             logger.info(ellipse)
         logger.info('angle: %s', angle)
         return angle, ellipse
@@ -340,17 +349,30 @@ class AngleRoadPart(Part):
 class RoadEllipseDebugPart(Part):
     IMG_ROAD_ELLIPSE = 'img/road_ellipse'
 
-    def run(self, img: ndarray, road_ellipse: Ellipse) -> ndarray:
+    def run(self, img: ndarray, road_ellipse: Ellipse, angle: float) -> ndarray:
+        x_center = int(img.shape[1] / 2)
+
+        if angle > 0:
+            img_debug = cv2.arrowedLine(img.copy(), pt1=(x_center, 50),
+                                        pt2=(int(x_center + (20 * math.sin(angle))), int(50 - (20 * math.cos(angle)))),
+                                        color=(255, 20, 100),
+                                        thickness=3, tipLength=0.5)
+        else:
+            img_debug = cv2.arrowedLine(img.copy(), pt1=(x_center, 50),
+                                        pt2=(int(x_center - (20 * math.sin(-1 * angle))),
+                                             int(50 - (20 * math.cos(angle)))),
+                                        color=(255, 20, 100),
+                                        thickness=3, tipLength=0.5)
         if not road_ellipse:
             return img
-        img_debug = cv2.ellipse(img.copy(), center=road_ellipse.center, axes=road_ellipse.axes,
+        img_debug = cv2.ellipse(img_debug, center=road_ellipse.center, axes=road_ellipse.axes,
                                 angle=road_ellipse.angle, startAngle=0, endAngle=360, color=(20, 255, 100),
                                 thickness=2)
-        img_debug = cv2.circle(img_debug.copy(), center=road_ellipse.center, radius=5, color=(255, 0, 0))
+        img_debug = cv2.circle(img_debug, center=road_ellipse.center, radius=5, color=(255, 0, 0))
         return img_debug
 
     def get_inputs_keys(self) -> List[str]:
-        return [RoadDebugPart.IMG_ROAD, AngleRoadPart.ROAD_ELLIPSE]
+        return [RoadDebugPart.IMG_ROAD, AngleRoadPart.ROAD_ELLIPSE, PILOT_ANGLE]
 
     def get_outputs_keys(self) -> List[str]:
         return [RoadEllipseDebugPart.IMG_ROAD_ELLIPSE]
