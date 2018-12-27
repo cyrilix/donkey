@@ -1,5 +1,6 @@
 import importlib as importlib
 import logging
+import numpy
 import os
 from pathlib import Path
 from typing import Dict, List, Iterator
@@ -16,6 +17,8 @@ from docker import DockerClient
 from numpy import ndarray
 from paho.mqtt import client as mqtt
 from time import sleep
+
+from pytest import fixture
 
 DOCKER_COMPOSE_PROJECT = 'donkeycar'
 
@@ -68,27 +71,32 @@ def _load_img_gray(img):
     return cv2.cvtColor(_load_img(img), cv2.COLOR_RGB2GRAY)
 
 
-@pytest.fixture(scope='session')
+@fixture(scope='session')
+def img_black() -> ndarray:
+    return cv2.cvtColor(numpy.zeros(shape=(120, 160), dtype=numpy.uint8), cv2.COLOR_GRAY2BGR)
+
+
+@fixture(scope='session')
 def img_straight_line() -> ndarray:
     return _load_img("straight_line_1.jpg")
 
 
-@pytest.fixture(scope='session')
+@fixture(scope='session')
 def img_straight_line_gray() -> ndarray:
     return _load_img_gray("straight_line_1.jpg")
 
 
-@pytest.fixture(scope='session')
+@fixture(scope='session')
 def img_turn_right_gray() -> ndarray:
     return _load_img_gray("turn_right.jpg")
 
 
-@pytest.fixture(scope='session')
+@fixture(scope='session')
 def img_straight_line_binarized_150_200() -> ndarray:
     return _load_img_gray('straight_line_binarized_150_200.jpg')
 
 
-@pytest.fixture(scope="session")
+@fixture(scope="session")
 def docker_project() -> Project:
     """
     Builds the Docker project if necessary, once per session.
@@ -117,7 +125,7 @@ def docker_project() -> Project:
     return project
 
 
-@pytest.fixture(scope='session')
+@fixture(scope='session')
 def docker_containers(docker_project: Project) -> Iterator[Dict[str, Container]]:
     """
     Spins up a the containers for the Docker project and returns
@@ -157,14 +165,14 @@ def _base_path() -> Path:
     return Path(path)
 
 
-@pytest.fixture(scope='session', name='docker_client')
+@fixture(scope='session', name='docker_client')
 def fixture_docker_client() -> Iterator[DockerClient]:
     client = docker.client.from_env()
     yield client
     client.close()
 
 
-@pytest.fixture(scope='session')
+@fixture(scope='session')
 def mqtt_address(docker_containers: Dict[str, Container], docker_client: DockerClient) -> (str, int):
     mqtt = docker_containers.get('{0}_mqtt_1'.format(DOCKER_COMPOSE_PROJECT))
     container = docker_client.containers.get(mqtt.id)

@@ -94,9 +94,5 @@ class BaseVehicle(Vehicle):
         self.register(ThrottleControllerFixedSpeed(speed=cfg.THROTTLE_MIN_SPEED))
 
     def _configure_angle_part(self, cfg):
-        config = AngleConfigController(number_centroids_to_use=cfg.NB_CONTOURS_TO_USE,
-                                       out_zone_percent=cfg.OUT_ZONE_PERCENT,
-                                       central_zone_percent=cfg.CENTRAL_ZONE_PERCENT)
-        self.register(config)
-        self.register(AngleRoadPart(image_resolution=cfg.CAMERA_RESOLUTION, angle_config_controller=config))
+        self.register(AngleRoadPart())
         self.register(RoadEllipseDebugPart())

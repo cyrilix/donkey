@@ -1,4 +1,5 @@
 import logging
+from collections import namedtuple
 from typing import List, Tuple
 
 import cv2
@@ -222,6 +223,32 @@ class RoadPart(Part):
         return [RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON]
 
 
+Ellipse = namedtuple('Ellipse', ('center', 'axes', 'angle', 'trust'))
+
+
+class RoadEllipsePart(Part):
+
+    ROAD_ELLIPSE = 'road/ellipse'
+
+    def run(self, contour: Shape) -> Ellipse:
+        trust_detection = 1.0
+        if len(contour) < 5:
+            return Ellipse(None, None, 90.0, 0.0)
+
+        # Check center position
+        # Check MA/ma ration
+        (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
+        ellipse = Ellipse((int(x), int(y)), (MA, ma), angle, trust_detection)
+
+        return ellipse
+
+    def get_inputs_keys(self) -> List[str]:
+        return [RoadPart.ROAD_CONTOUR]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [RoadEllipsePart.ROAD_ELLIPSE]
+
+
 class RoadDebugPart(Part):
     IMG_ROAD = "img/road"
 
@@ -267,9 +294,11 @@ class ComponentRoadPart(Part):
                                            mqtt_enable=False)
         self._road_part = RoadPart(config=road_config, input_img_type='')
         self._road_debug_part = RoadDebugPart()
+        self._road_ellipse_part = RoadEllipsePart()
         self._last_road_contour = None
 
-    def run(self, img: np.ndarray) -> (ndarray, ndarray, ndarray,  ndarray, Shape, Tuple[Tuple[int, int]], ndarray):
+    def run(self, img: np.ndarray) -> \
+            (ndarray, ndarray, ndarray,  ndarray, Shape, Tuple[Tuple[int, int]], ndarray, Ellipse):
         try:
             img_gray = self._gray_part.run(img)
             bbox = self._bbox_part.run(img_gray, road_contour=self._last_road_contour)
@@ -280,8 +309,9 @@ class ComponentRoadPart(Part):
             road_contour, horizon = self._road_part.run(canny)
             if road_contour:
                 self._last_road_contour = road_contour
+            road_ellipse = self._road_ellipse_part.run(road_contour)
             road_debug = self._road_debug_part.run(road_shape=road_contour, horizon=horizon, img=img)
-            return img_gray, gray2, blur, canny, road_contour, horizon, road_debug
+            return img_gray, gray2, blur, canny, road_contour, horizon, road_debug, road_ellipse
         except:
             logging.exception("Unexpected error")
             return np.zeros(img.shape, dtype=img.dtype)
@@ -291,4 +321,4 @@ class ComponentRoadPart(Part):
 
     def get_outputs_keys(self) -> List[str]:
         return [ConvertToGrayPart.IMG_GRAY_RAW, ThresholdPart.IMG_THRESHOLD, BlurPart.IMG_BLUR, CannyPart.IMG_CANNY,
-                RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON, RoadDebugPart.IMG_ROAD]
+                RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON, RoadDebugPart.IMG_ROAD, RoadEllipsePart.ROAD_ELLIPSE]

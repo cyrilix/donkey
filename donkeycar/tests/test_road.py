@@ -9,7 +9,7 @@ from paho.mqtt.client import Client
 from donkeycar.parts.road import RoadPart, RoadConfigController, CFG_ROAD_HORIZON_HOUGH_MIN_LINE_LENGTH, \
     CFG_ROAD_HORIZON_HOUGH_MAX_LINE_GAP, CFG_ROAD_HORIZON_HOUGH_THRESHOLD, CFG_ROAD_CONTOUR_KERNEL_SIZE, \
     CFG_ROAD_CONTOUR_MORPHO_ITERATIONS, CFG_ROAD_CONTOUR_CANNY_THRESHOLD1, CFG_ROAD_CONTOUR_CANNY_THRESHOLD2, \
-    CFG_ROAD_CONTOUR_APPROX_POLY_EPSILON_FACTOR, CFG_ROAD_ENABLE, ComponentRoadPart
+    CFG_ROAD_CONTOUR_APPROX_POLY_EPSILON_FACTOR, CFG_ROAD_ENABLE, ComponentRoadPart, RoadEllipsePart
 from donkeycar.parts.threshold import Shape
 from donkeycar.tests.conftest import wait_port_open, wait_all_mqtt_messages_consumed
 from pytest import fixture
@@ -21,7 +21,7 @@ class TestComponentRoadPart:
         return ComponentRoadPart()
 
     def test_run(self, component_road_part: ComponentRoadPart, img_straight_line: ndarray):
-        _, _, _, _, contour, _, img_debug = component_road_part.run(img_straight_line)
+        _, _, _, _, contour, _, img_debug, ellipse = component_road_part.run(img_straight_line)
 
         # Uncomment to debug
         # self.debug_contour(img_debug.copy(), contour)
@@ -43,6 +43,18 @@ class TestComponentRoadPart:
                             (64, 20)]
         assert contour == expected_contour
         assert len(img_debug) > 0
+        assert ellipse.center == (73, 72)
+        assert 96 < ellipse.axes[0] < 97
+        assert 299 < ellipse.axes[1] < 300
+        assert 87 < ellipse.angle < 93
+        assert ellipse.trust == 1.0
+
+    def test_invalid_image(self, component_road_part: ComponentRoadPart, img_black: ndarray):
+        _, _, _, _, contour, _, img_debug, ellipse = component_road_part.run(img_black)
+        assert ellipse.trust == 0.0
+        assert not ellipse.center
+        assert not ellipse.axes
+        assert ellipse.angle == 90
 
     @staticmethod
     def debug_contour(img_debug: ndarray, contour: Shape) -> None:
@@ -187,3 +199,30 @@ class TestRoadConfigController:
         assert canny_threshold1 == 50
         assert canny_threshold2 == 60
         assert approx_poly_epsilon_factor == 70.5
+
+
+class TestRoadEllipsePart:
+    @fixture(name='instance')
+    def fixture_instance(self) -> RoadEllipsePart:
+        return RoadEllipsePart()
+
+    def test_run_short_contour(self, instance: RoadEllipsePart):
+        ellipse = instance.run(contour=[(0, 0), (10, 0), (10, 20)])
+
+        assert ellipse.trust == 0.0
+        assert not ellipse.center
+        assert not ellipse.axes
+        assert ellipse.angle == 90
+
+    def test_run(self, instance: RoadEllipsePart, monkeypatch):
+        contour = [(0, 30), (0, 119), (43, 119), (45, 112), (46, 119), (68, 119), (69, 96), (70, 119), (159, 119),
+                   (159, 41), (81, 14), (105, 11), (51, 13)]
+
+        monkeypatch.setattr(cv2, 'fitEllipse', lambda ctr: ((75, 76), (20, 60), 93.0))
+        ellipse = instance.run(contour=contour)
+
+        assert ellipse.trust == 1.0
+        assert ellipse.center == (75, 76)
+        assert ellipse.axes == (20, 60)
+        assert ellipse.angle == 93.0
+

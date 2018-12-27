@@ -5,6 +5,7 @@ from paho.mqtt.client import Client
 from pytest import fixture
 
 from donkeycar.parts.angle import AngleProcessorMiddleLine, AngleConfigController, AngleRoadPart
+from donkeycar.parts.road import Ellipse
 from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
 
 logger = logging.getLogger(__name__)
@@ -119,32 +120,16 @@ class TestAngleRoadPart:
         part.shutdown()
 
     def test_straight_ahead(self, part: AngleRoadPart):
-        contour = [(0, 31),
-                   (0, 119),
-                   (43, 119),
-                   (45, 110),
-                   (46, 119),
-                   (66, 119),
-                   (67, 100),
-                   (68, 119),
-                   (159, 119),
-                   (158, 42),
-                   (87, 18),
-                   (73, 22),
-                   (71, 53),
-                   (61, 47),
-                   (64, 20)]
+        assert 0 < part.run(road_ellipse=Ellipse((70, 71), (100, 200), 89.0, 1.0)) < 0.1
+        assert -0.1 < part.run(road_ellipse=Ellipse((70, 71), (100, 200), 91.0, 1.0)) < 0.0
 
-        horizon = ((0, 10), (160, 10))
-        angle, _ = part.run(contour, horizon)
-        assert angle == 0.0
+        assert 0 < part.run(road_ellipse=Ellipse((70, 71), (100, 200), 269.0, 1.0)) < 0.1
+        assert -0.1 < part.run(road_ellipse=Ellipse((70, 71), (100, 200), 271.0, 1.0)) < 0.0
 
-    def test_missing_point_to_process(self, part: AngleRoadPart):
-        contour = [(0, 31),
-                   (0, 119),
-                   (43, 119),
-                   (64, 20)]
-        horizon = ((0, 10), (160, 10))
-        angle, _ = part.run(contour, horizon)
-        assert angle == 0.0
+    def test_turn_right(self, part: AngleRoadPart):
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 45.0, 1.0)) == 1.0
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 0.1, 1.0)) == 1.0
 
+    def test_turn_left(self, part: AngleRoadPart):
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 135.0, 1.0)) == -1.0
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 180.0, 1.0)) == -1.0
