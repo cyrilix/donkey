@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ThrottleConfigController(MqttController):
 
     def __init__(self, min_speed: float, max_speed: float, safe_angle: float, dangerous_angle: float,
-                 use_steering: bool, stop_on_shock: bool, mqtt_enable: bool = True,
+                 use_steering: bool, mqtt_enable: bool = True,
                  mqtt_topic: str = 'config/throttle/#', mqtt_hostname: str = 'localhost', mqtt_port: int = 1883,
                  mqtt_client_id: str = "donkey-config-throttle-", mqtt_username: str = None, mqtt_password: str = None,
                  mqtt_qos: int = 0):
@@ -27,7 +27,6 @@ class ThrottleConfigController(MqttController):
         self.safe_angle = safe_angle
         self.dangerous_angle = dangerous_angle
         self.use_steering = use_steering
-        self.stop_on_shock = stop_on_shock
 
     def run(self) -> (bool, float, float, float, float, bool):
         """
@@ -40,7 +39,7 @@ class ThrottleConfigController(MqttController):
             * cfg/throttle/stop_on_shock
         """
 
-        return self.use_steering, self.min_speed, self.max_speed, self.safe_angle, self.dangerous_angle, self.stop_on_shock
+        return self.use_steering, self.min_speed, self.max_speed, self.safe_angle, self.dangerous_angle
 
     def get_inputs_keys(self) -> List[str]:
         return []
@@ -50,8 +49,7 @@ class ThrottleConfigController(MqttController):
                 'cfg/throttle/min',
                 'cfg/throttle/max',
                 'cfg/throttle/angle/safe',
-                'cfg/throttle/angle/dangerous',
-                'cfg/throttle/stop_on_shock']
+                'cfg/throttle/angle/dangerous' ]
 
 
 def _on_throttle_config_message(_: Client, userdata: ThrottleConfigController, msg: MQTTMessage):
@@ -87,13 +85,12 @@ def _on_throttle_config_message(_: Client, userdata: ThrottleConfigController, m
 
 
 class ThrottleControllerFixedSpeed(Part):
-
-    def __init__(self, speed: float):
-
-        self.speed = speed
+    def __init__(self, throttle_config_controller: ThrottleConfigController):
+        self._throttle_config_controller = throttle_config_controller
+        self._shock = False
 
     def run(self) -> float:
-        return self.speed
+        return self._throttle_config_controller.min_speed
 
     def get_inputs_keys(self) -> List[str]:
         return []
@@ -111,14 +108,7 @@ class ThrottleControllerSteeringBased(Part):
         self._throttle_config_controller = throttle_config_controller
         self._shock = False
 
-    def run(self, angle: float, shock: bool) -> float:
-        if self._throttle_config_controller.stop_on_shock:
-            if shock:
-                logger.info("!!!!!!! SHOCK DETECTED !!!!!!!!")
-                self._shock = shock
-
-            if self._shock:
-                return 0.0
+    def run(self, angle: float) -> float:
         safe_angle = self._throttle_config_controller.safe_angle
         dangerous_angle = self._throttle_config_controller.dangerous_angle
         min_speed = self._throttle_config_controller.min_speed
@@ -136,7 +126,7 @@ class ThrottleControllerSteeringBased(Part):
         return round((abs(angle) * speed_interv) + min_speed, 2)
 
     def get_inputs_keys(self) -> List[str]:
-        return [PILOT_ANGLE, SHOCK]
+        return [PILOT_ANGLE]
 
     def get_outputs_keys(self) -> List[str]:
         return [PILOT_THROTTLE]
@@ -151,11 +141,11 @@ class ThrottleController(Part):
         self.fix_controller = fix_controller
         self.steering_controller = steering_controller
 
-    def run(self, angle: float, shock: bool = False) -> float:
+    def run(self, angle: float) -> float:
         try:
             if self._throttle_config_controller.use_steering:
-                return self.steering_controller.run(angle=angle, shock=shock)
-            return self.fix_controller.run(shock=shock)
+                return self.steering_controller.run(angle=angle)
+            return self.fix_controller.run()
         except:
             logging.exception('Unexpected error')
             return self._throttle_config_controller.min_speed
