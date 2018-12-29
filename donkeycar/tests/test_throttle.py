@@ -1,8 +1,9 @@
 from paho.mqtt.client import Client
 from pytest import fixture
 
+from donkeycar.parts.road import Ellipse
 from donkeycar.parts.throttle import ThrottleControllerSteeringBased, ThrottleControllerFixedSpeed, \
-    ThrottleConfigController
+    ThrottleConfigController, ThrottleEllipsePart
 from donkeycar.tests.conftest import wait_all_mqtt_messages_consumed
 
 
@@ -108,3 +109,35 @@ class TestThrottleConfigController:
         assert max_speed == 0.5
         assert safe_angle == 0.3
         assert dangerous_angle == 0.7
+
+
+class TestThrottleEllipsePart:
+    @fixture(name='part')
+    def fixture_part(self, throttle_config_controller: ThrottleConfigController) -> ThrottleEllipsePart:
+        throttle_config_controller.min_speed = 0.1
+        throttle_config_controller.max_speed = 1.0
+        return ThrottleEllipsePart(throttle_config_controller=throttle_config_controller)
+
+    def test_no_ellipse(self, part: ThrottleEllipsePart, throttle_config_controller: ThrottleConfigController):
+        assert part.run(road_ellipse=None) == throttle_config_controller.min_speed
+
+    def test_trust_ellipse(self, part: ThrottleEllipsePart, throttle_config_controller: ThrottleConfigController):
+        ellipse = Ellipse(center=(12, 13), axes=(50, 50), angle=90, trust=0.0)
+        assert part.run(road_ellipse=ellipse) == throttle_config_controller.min_speed
+        ellipse = Ellipse(center=(12, 13), axes=(50, 50), angle=90, trust=0.5)
+        assert throttle_config_controller.min_speed < part.run(ellipse) < throttle_config_controller.max_speed
+        ellipse = Ellipse(center=(12, 13), axes=(50, 50), angle=90, trust=1.0)
+        assert part.run(road_ellipse=ellipse) == throttle_config_controller.max_speed
+
+    def test_straight_line(self, part: ThrottleEllipsePart, throttle_config_controller: ThrottleConfigController):
+        ellipse = Ellipse(center=(12, 13), axes=(50, 50), angle=90, trust=1.0)
+        assert part.run(road_ellipse=ellipse) == 1.0
+
+    def test_turn(self, part: ThrottleEllipsePart, throttle_config_controller: ThrottleConfigController):
+        ellipse = Ellipse(center=(12, 13), axes=(10, 50), angle=90, trust=1.0)
+        assert part.run(road_ellipse=ellipse) < 0.5
+        ellipse = Ellipse(center=(12, 13), axes=(50, 10), angle=90, trust=1.0)
+        assert part.run(road_ellipse=ellipse) < 0.5
+        ellipse = Ellipse(center=(12, 13), axes=(10, 50000), angle=90, trust=1.0)
+        assert part.run(road_ellipse=ellipse) == throttle_config_controller.min_speed
+

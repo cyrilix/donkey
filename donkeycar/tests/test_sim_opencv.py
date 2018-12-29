@@ -2,16 +2,14 @@ from pathlib import Path
 from time import sleep
 
 import cv2
-import pytest
 from pytest import fixture
 
 from donkeycar import Vehicle
 from donkeycar.parts.angle import RoadEllipseDebugPart, AngleRoadPart
 from donkeycar.parts.camera import VideoCamera
-from donkeycar.parts.img_process import ConvertToGrayPart, HistogramPart, GraySelectorPart, BlurPart, BoundingBoxPart, \
-    DilatePart, ThresholdPart, CannyPart
-from donkeycar.parts.road import RoadDebugPart, RoadPart, RoadConfigController, ComponentRoadPart
-from donkeycar.parts.threshold import ThresholdController, ThresholdConfigController
+from donkeycar.parts.img_process import ConvertToGrayPart, ThresholdPart, CannyPart
+from donkeycar.parts.road import RoadDebugPart, RoadConfigController, ComponentRoadPart
+from donkeycar.parts.throttle import ThrottleDebugPart, ThrottleEllipsePart, ThrottleConfigController
 from donkeycar.tests.conftest import _base_path
 
 
@@ -36,13 +34,26 @@ def fixture_road_config() -> RoadConfigController:
                                 mqtt_enable=False)
 
 
+@fixture(name='throttle_config')
+def fixture_throttle_config() -> ThrottleConfigController:
+    return ThrottleConfigController(mqtt_enable=False,
+                                    min_speed=0.1,
+                                    max_speed=1.0,
+                                    safe_angle=0.1,
+                                    dangerous_angle=0.8,
+                                    use_steering=False)
+
+
 @fixture(name='vehicle')
-def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController) -> Vehicle:
+def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController,
+                    throttle_config: ThrottleConfigController) -> Vehicle:
     vehicle = Vehicle()
     vehicle.register(video_camera)
     vehicle.register(ComponentRoadPart())
     vehicle.register(AngleRoadPart())
+    vehicle.register(ThrottleEllipsePart(throttle_config_controller=throttle_config))
     vehicle.register(RoadEllipseDebugPart())
+    vehicle.register(ThrottleDebugPart(input_img_key=RoadEllipseDebugPart.IMG_ROAD_ELLIPSE))
     return vehicle
 
 

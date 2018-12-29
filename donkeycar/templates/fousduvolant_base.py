@@ -10,7 +10,7 @@ from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
 from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.road import ComponentRoadPart
 from donkeycar.parts.throttle import ThrottleControllerFixedSpeed, \
-    PILOT_THROTTLE, ThrottleConfigController
+    PILOT_THROTTLE, ThrottleConfigController, ThrottleEllipsePart
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import LocalWebController
 
@@ -97,7 +97,7 @@ class BaseVehicle(Vehicle):
                                                      dangerous_angle=cfg.THROTTLE_DANGEROUS_ANGLE,
                                                      use_steering=cfg.THROTTLE_STEERING_ENABLE)
         self.register(config_controller)
-        self.register(ThrottleControllerFixedSpeed(throttle_config_controller=config_controller))
+        self.register(ThrottleEllipsePart(throttle_config_controller=config_controller))
 
     def _configure_angle_part(self, cfg):
         self.register(AngleRoadPart())

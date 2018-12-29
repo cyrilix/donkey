@@ -1,3 +1,4 @@
+import cv2
 import logging
 from typing import List
 
@@ -7,6 +8,7 @@ from donkeycar.parts.angle import PILOT_ANGLE
 from donkeycar.parts.arduino import SHOCK
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
+from donkeycar.parts.road import RoadEllipsePart, Ellipse
 
 PILOT_THROTTLE = 'pilot/throttle'
 
@@ -155,7 +157,80 @@ class ThrottleController(Part):
         self.steering_controller.shutdown()
 
     def get_inputs_keys(self) -> List[str]:
-        return [PILOT_ANGLE, SHOCK]
+        return [PILOT_ANGLE]
 
     def get_outputs_keys(self) -> List[str]:
         return [PILOT_THROTTLE]
+
+
+class ThrottleEllipsePart(Part):
+    """
+    Compute throttle from road ellipse
+    """
+    def __init__(self, throttle_config_controller: ThrottleConfigController):
+        self._throttle_config = throttle_config_controller
+
+    def run(self, road_ellipse: Ellipse):
+        if not road_ellipse:
+            return self._throttle_config.min_speed
+        throttle_on_trust = self._compute_throttle_on_trust(road_ellipse)
+        throttle_on_ellipse_ratio = self._compute_throttle_on_ellipse_ration(road_ellipse)
+        throttle = throttle_on_trust * throttle_on_ellipse_ratio
+        logger.info('throttle trust: %s', throttle_on_trust)
+        logger.info('throttle ellipse ratio: %s', throttle_on_ellipse_ratio)
+
+        return throttle if throttle >= self._throttle_config.min_speed else self._throttle_config.min_speed
+
+    def _compute_throttle_on_trust(self, road_ellipse: Ellipse) -> float:
+        delta = self._throttle_config.max_speed - self._throttle_config.min_speed
+        raw = road_ellipse.trust * delta
+        throttle_on_trust = raw + self._throttle_config.min_speed
+        return throttle_on_trust
+
+    def _compute_throttle_on_ellipse_ration(self, road_ellipse: Ellipse) -> float:
+        axes = road_ellipse.axes
+        if not axes:
+            return self._throttle_config.min_speed
+        if axes[0] < axes[1]:
+            return axes[0] / axes[1]
+        return axes[1] / axes[0]
+
+    def get_inputs_keys(self) -> List[str]:
+        return [RoadEllipsePart.ROAD_ELLIPSE]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [PILOT_THROTTLE]
+
+
+class ThrottleDebugPart(Part):
+    def __init__(self, input_img_key: str):
+        self._input_key = input_img_key
+
+    def run(self, img, throttle):
+        if not throttle:
+            throttle = 0.0
+        y_pt1 = 50
+        y_pt2 = 45
+        green = 255
+        red = 0
+
+        for i in range(0, int(throttle * 10)):
+            cv2.rectangle(img=img,
+                          pt1=(img.shape[1] - 20, y_pt1),
+                          pt2=(img.shape[1] - 10, y_pt2),
+                          color=(0, green, red),
+                          thickness=cv2.FILLED
+                        )
+            y_pt1 = y_pt1 - 5
+            y_pt2 = y_pt2 - 5
+            red = red + 255 / 10
+            green = green - 255 / 10
+        img = cv2.putText(img=img, text='{0:.2f}'.format(throttle), org=(img.shape[1] - 25, 60),
+                          fontFace=cv2.FONT_HERSHEY_PLAIN, fontScale=0.7, color=(255, 255, 255))
+        return img
+
+    def get_inputs_keys(self) -> List[str]:
+        return [self._input_key, PILOT_THROTTLE]
+
+    def get_outputs_keys(self) -> List[str]:
+        return [self._input_key]
