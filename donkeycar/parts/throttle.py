@@ -5,7 +5,6 @@ from typing import List
 from paho.mqtt.client import Client, MQTTMessage
 
 from donkeycar.parts.angle import PILOT_ANGLE
-from donkeycar.parts.arduino import SHOCK
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
 from donkeycar.parts.road import RoadEllipsePart, Ellipse
@@ -169,6 +168,8 @@ class ThrottleEllipsePart(Part):
     """
     def __init__(self, throttle_config_controller: ThrottleConfigController):
         self._throttle_config = throttle_config_controller
+        self._min_throttle = 0.4
+        self._max_throttle = 0.8
 
     def run(self, road_ellipse: Ellipse):
         if not road_ellipse:
@@ -179,6 +180,7 @@ class ThrottleEllipsePart(Part):
         logger.info('throttle trust: %s', throttle_on_trust)
         logger.info('throttle ellipse ratio: %s', throttle_on_ellipse_ratio)
 
+        throttle = self._normalize_throttle(throttle)
         return throttle if throttle >= self._throttle_config.min_speed else self._throttle_config.min_speed
 
     def _compute_throttle_on_trust(self, road_ellipse: Ellipse) -> float:
@@ -200,6 +202,14 @@ class ThrottleEllipsePart(Part):
 
     def get_outputs_keys(self) -> List[str]:
         return [PILOT_THROTTLE]
+
+    def _normalize_throttle(self, throttle: float) -> float:
+        if throttle > self._max_throttle:
+            throttle = self._max_throttle
+        throttle = throttle - self._min_throttle
+        if throttle < 0:
+            throttle = 0
+        return throttle / (self._max_throttle - self._min_throttle)
 
 
 class ThrottleDebugPart(Part):
