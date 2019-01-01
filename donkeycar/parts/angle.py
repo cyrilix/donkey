@@ -356,8 +356,10 @@ class RoadEllipseDebugPart(Part):
             reduced_axes = (int(road_ellipse.axes[0] / 5), int(road_ellipse.axes[1] / 5))
         else:
             reduced_axes = (1, 1)
+        green = int(road_ellipse.trust * 255)
+        red = 255 - int(road_ellipse.trust * 255)
         img_debug = cv2.ellipse(img_debug, center=road_ellipse.center, axes=reduced_axes,
-                                angle=road_ellipse.angle, startAngle=0, endAngle=360, color=(20, 255, 100),
+                                angle=road_ellipse.angle, startAngle=0, endAngle=360, color=(20, green, red),
                                 thickness=2)
         img_debug = cv2.circle(img_debug, center=road_ellipse.center, radius=5, color=(255, 0, 0))
         img_debug = cv2.putText(img=img_debug, text='{0:.2f}'.format(angle), org=(10, 10),

@@ -177,8 +177,6 @@ class ThrottleEllipsePart(Part):
         throttle_on_trust = self._compute_throttle_on_trust(road_ellipse)
         throttle_on_ellipse_ratio = self._compute_throttle_on_ellipse_ration(road_ellipse)
         throttle = throttle_on_trust * throttle_on_ellipse_ratio
-        logger.info('throttle trust: %s', throttle_on_trust)
-        logger.info('throttle ellipse ratio: %s', throttle_on_ellipse_ratio)
 
         throttle = self._normalize_throttle(throttle)
         return throttle if throttle >= self._throttle_config.min_speed else self._throttle_config.min_speed

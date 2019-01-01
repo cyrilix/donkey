@@ -231,14 +231,14 @@ class RoadEllipsePart(Part):
     ROAD_ELLIPSE = 'road/ellipse'
 
     def run(self, contour: Shape) -> Ellipse:
-        trust_detection = 1.0
         if len(contour) < 5:
             return Ellipse(None, None, 90.0, 0.0)
 
-        # Check center position
-        # Check MA/ma ration
         (x, y), (MA, ma), angle = cv2.fitEllipse(np.asarray(contour))
-        ellipse = Ellipse((int(x), int(y)), (MA, ma), angle, trust_detection)
+
+        trust = self._compute_trust_from_center(x=x, y=y)
+        logger.debug('Trust: %s', trust)
+        ellipse = Ellipse(center=(int(x), int(y)), axes=(MA, ma), angle=angle, trust=trust)
 
         return ellipse
 
@@ -247,6 +247,38 @@ class RoadEllipsePart(Part):
 
     def get_outputs_keys(self) -> List[str]:
         return [RoadEllipsePart.ROAD_ELLIPSE]
+
+    def _compute_trust_from_center(self, x: float, y: float):
+        safe_min_x = 48
+        safe_max_x = 115
+        safe_min_y = 69
+        safe_max_y = 119
+
+        if safe_min_x <= x <= safe_max_x and safe_min_y <= y <= safe_max_y:
+            return 1.0
+
+        if safe_min_x <= x <= safe_max_x:
+            return self._compute_trust_on_axis(safe_max_y, safe_min_y, int(y))
+
+        if safe_min_y <= y <= safe_max_y:
+            return self._compute_trust_on_axis(safe_max_x, safe_min_x, int(x))
+
+        return self._compute_trust_on_axis(safe_max_y, safe_min_y, int(y)) * \
+            self._compute_trust_on_axis(safe_max_x, safe_min_x, int(x))
+
+    @staticmethod
+    def _compute_trust_on_axis(safe_max: int, safe_min: int, value: int) -> float:
+        trust = 1.0
+        if value > safe_max:
+            logger.debug('Trust: %s/%s', value, safe_max )
+            trust = 1 / (int(value - safe_max))
+        elif value < safe_min:
+            logger.debug('Trust: %s/%s', value, safe_min)
+            trust = 1 / (int(safe_min - value))
+        trust = trust * 10
+        if trust > 0.9:
+            trust = 0.9
+        return trust if trust > 0.0 else 0.0
 
 
 class RoadDebugPart(Part):
