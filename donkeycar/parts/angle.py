@@ -311,7 +311,23 @@ class AngleContourDebug(Part):
 class AngleRoadPart(Part):
     CUSTOM_FACTOR = 5.0
 
+    def __init__(self):
+        self._previous = None
+
     def run(self, road_ellipse: Ellipse) -> float:
+        if road_ellipse.trust < 0.5:
+            return self._previous if self._previous else 0.0
+
+        angle = self._compute_angle(road_ellipse)
+        if not self._previous and 0.5 <= road_ellipse.trust < 1.0:
+            angle = angle * road_ellipse.trust
+        elif 0.5 <= road_ellipse.trust < 1.0:
+            angle = (angle * road_ellipse.trust + self._previous) / 2
+
+        self._previous = angle
+        return angle
+
+    def _compute_angle(self, road_ellipse):
         angle = (road_ellipse.angle - 90) * -1
         if angle > 90:
             angle = angle - 180

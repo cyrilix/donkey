@@ -133,3 +133,22 @@ class TestAngleRoadPart:
     def test_turn_left(self, part: AngleRoadPart):
         assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 135.0, 1.0)) == -1.0
         assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 180.0, 1.0)) == -1.0
+
+    def test_bad_trust_at_start(self, part: AngleRoadPart):
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 135.0, trust=0.1)) == 0.0, \
+            'Angle should be ignored when no previous value and bad trust value'
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 135.0, trust=0.1)) == 0.0, \
+            'No previous angle value'
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 135.0, trust=0.5)) == -0.5, \
+            'At startup, use average between angle and straight ahead'
+
+    def test_bad_trust(self, part: AngleRoadPart):
+        assert 0 < part.run(road_ellipse=Ellipse((70, 71), (100, 200), 89.0, trust=1.0)) < 0.1
+        assert 0 < part.run(road_ellipse=Ellipse((70, 71), (100, 200), 135.0, trust=0.1)) < 0.1, \
+            'Previous value should be used when trust < 0.5'
+
+    def test_trust_not_perfect(self, part: AngleRoadPart):
+        # Record previous value
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 45.0, trust=1.0)) == 1.0
+        assert part.run(road_ellipse=Ellipse((70, 71), (100, 200), 135.0, trust=0.5)) == 0.25, \
+            'At startup, use weighted average between current and previous angles'
