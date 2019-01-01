@@ -5,6 +5,7 @@ import RPi.GPIO as GPIO
 from donkeycar.parts.arduino import DRIVE_MODE_USER, DRIVE_MODE_PILOT
 from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.part import Part
+from donkeycar.parts.road import RoadEllipsePart, Ellipse
 
 
 class UserModeIndicatorLight(Part):
@@ -21,20 +22,25 @@ class UserModeIndicatorLight(Part):
         GPIO.output(pin_green, GPIO.LOW)
         GPIO.output(pin_blue, GPIO.LOW)
 
-    def run(self, user_mode: str) -> None:
+    def run(self, user_mode: str, road_ellipse: Ellipse) -> None:
         if user_mode == DRIVE_MODE_USER:
             self._set_red_value(0)
             self._set_green_value(255)
             self._set_blue_value(0)
         elif user_mode == DRIVE_MODE_PILOT:
-            self._set_red_value(255)
+            if not road_ellipse or not road_ellipse.trust:
+                red = 255
+                blue = 0
+            else:
+                red = int(255 * (1 - road_ellipse.trust))
+                blue = int(255 * road_ellipse.trust)
+            self._set_red_value(red)
             self._set_green_value(0)
-            self._set_blue_value(0)
+            self._set_blue_value(blue)
         else:
             self._set_red_value(0)
             self._set_green_value(0)
             self._set_blue_value(255)
-
 
     def _set_red_value(self, value: int):
         if value == 0:
@@ -61,7 +67,7 @@ class UserModeIndicatorLight(Part):
         GPIO.cleanup()
 
     def get_inputs_keys(self) -> List[str]:
-        return [USER_MODE]
+        return [USER_MODE, RoadEllipsePart.ROAD_ELLIPSE]
 
     def get_outputs_keys(self) -> List[str]:
         return []
