@@ -2,7 +2,7 @@ from pathlib import Path
 from time import sleep
 
 import cv2
-from pytest import fixture
+from pytest import fixture, mark
 
 from donkeycar import Vehicle
 from donkeycar.parts.angle import RoadEllipseDebugPart, AngleRoadPart
@@ -57,7 +57,7 @@ def fixture_vehicle(video_camera: VideoCamera, road_config: RoadConfigController
     return vehicle
 
 
-@pytest.mark.skip
+@mark.skip
 def test_render(vehicle: Vehicle) -> None:
     while True:
         vehicle.update_parts()
