@@ -3,12 +3,14 @@ import pytest
 import json
 from donkeycar.parts.web_controller.web import LocalWebController
 
+
 @pytest.fixture
 def server():
     server = LocalWebController()
     return server
 
 
+@pytest.mark.skip
 def test_json_output(server):
     result = server.run()
     print(result)
