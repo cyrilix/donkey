@@ -124,6 +124,8 @@ class MqttMetricsPublisher(MetricsPublisher):
                 json_data[key] = name
                 self._publish(message, topic=self._topic + "/image/" + key)
             elif isinstance(val, numpy.ndarray):
+                if key not in ['cam/image_array', 'img/road_ellipse']:
+                    continue
                 img_content = utils.arr_to_binary(val)
                 name = self.make_file_name(key, ext='.jpg')
                 message = self._build_image_message(image_name=name, img_content=img_content, part=key)
