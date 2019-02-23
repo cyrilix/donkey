@@ -19,6 +19,7 @@ import json
 import logging
 import os
 from os import path
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 from docopt import docopt
@@ -32,12 +33,13 @@ def run_consumer(hostname, topic, userid, password, tub_path_root):
 
     def on_connect(client, userdata, flags, rc):
         logger.info("Connected with result code %s", rc)
-        client.subscribe(topic, 0)
+        client.subscribe(topic, qos=1)
 
     def on_message(client, userdata, msg):
         consumer.run(msg)
 
-    mqtt_client = mqtt.Client(clean_session=True, userdata=None,
+    mqtt_client = mqtt.Client(client_id='car_consummer-',
+                              clean_session=False, userdata=None,
                               protocol=mqtt.MQTTv311)
     mqtt_client.username_pw_set(username=userid, password=password)
     mqtt_client.connect(host=hostname)
@@ -56,12 +58,23 @@ class Consumer:
         logger.debug('Received a message: %s', msg['application_headers'])
 
         tub_path = self._mkdir_tub(msg['application_headers'])
-        file_name = path.join(tub_path, msg['application_headers']['name'])
+        if msg['content_type'] == 'application/json':
+            part = 'record'
+        else:
+            part = msg['application_headers']['part']
+
+        file_ext = msg['application_headers']['name'].split('.')[-1]
+        file_name = '{0}/{1}_{2}.{3}'.format(tub_path,
+                                             part,
+                                             '{:09d}'.format(msg['application_headers']['index']),
+                                             file_ext)
+        print(str(msg['application_headers']['index']) + '                  ', end='\r')
 
         self._write_content(file_name, msg)
 
     @staticmethod
     def _write_content(file_name: str, msg: dict):
+        Path(file_name).parent.mkdir(parents=True, exist_ok=True)
         if msg['content_type'] == "application/json":
             logger.debug('Content: %s', msg['payload'])
             with open(file_name, encoding='utf-8', mode='wt') as json_file:
