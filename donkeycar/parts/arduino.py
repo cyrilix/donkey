@@ -4,7 +4,7 @@ from typing import List
 
 import serial
 
-from donkeycar.parts.mqtt import USER_MODE
+from donkeycar.parts.mqtt import USER_MODE, CTRL_RECORD
 from donkeycar.parts.part import ThreadedPart
 
 DRIVE_MODE_USER = 'user'
@@ -38,6 +38,7 @@ class SerialPart(ThreadedPart):
         self._user_angle = 0.0
         self._user_throttle = 0.0
         self._user_mode = 'user'
+        self._ctrl_record = False
         self._on = True
         self._button_is_pushed = False
 
@@ -87,7 +88,14 @@ class SerialPart(ThreadedPart):
         pass
 
     def _process_channel_5(self, value):
-        pass
+        if value > 1800:
+            if not self._ctrl_record:
+                logger.info('Update channel 5 with value %s, record: %s', True, False)
+            self._ctrl_record = True
+        else:
+            if not self._ctrl_record:
+                logger.info('Update channel 5 with value %s, record: %s', False, True)
+            self._ctrl_record = False
 
     def _process_channel_6(self, value):
         if value > 1800:
@@ -100,7 +108,7 @@ class SerialPart(ThreadedPart):
             self._user_mode = DRIVE_MODE_USER
 
     def run_threaded(self) -> (int, int, str, bool):
-        return self._user_angle, self._user_throttle, self._user_mode
+        return self._user_angle, self._user_throttle, self._user_mode, self._ctrl_record
 
     def get_inputs_keys(self) -> List[str]:
         return []
@@ -108,7 +116,8 @@ class SerialPart(ThreadedPart):
     def get_outputs_keys(self) -> List[str]:
         return [USER_ANGLE,
                 USER_THROTTLE,
-                USER_MODE
+                USER_MODE,
+                CTRL_RECORD
                 ]
 
     def shutdown(self):

@@ -29,7 +29,7 @@ class TestSerialPart:
         thread.join(0.01)
 
     def test_read_serial(self, serial_part: SerialPart, arduino: Queue) -> None:
-        steering, throttle, user_mode = serial_part.run_threaded()
+        steering, throttle, user_mode, record = serial_part.run_threaded()
         assert steering == 0.0
         assert throttle == 0.0
         assert 'user' == user_mode
@@ -44,23 +44,24 @@ class TestSerialPart:
                     .encode(encoding='utf-8'))
 
         time.sleep(0.01)
-        steering, throttle, user_mode = serial_part.run_threaded()
+        steering, throttle, user_mode, record = serial_part.run_threaded()
         assert steering != 0.0
         assert throttle != 0.0
         assert 'user' == user_mode
 
     def test_read_invalid_line(self, serial_part: SerialPart, arduino: Queue) -> None:
-        steering, throttle, user_mode = serial_part.run_threaded()
+        steering, throttle, user_mode, record = serial_part.run_threaded()
         assert steering == 0.0
         assert throttle == 0.0
         assert DRIVE_MODE_USER == user_mode
 
         arduino.put(b'\ninvalid\n')
         time.sleep(0.001)
-        steering, throttle, user_mode = serial_part.run_threaded()
+        steering, throttle, user_mode, record = serial_part.run_threaded()
         assert steering == 0.0
         assert throttle == 0.0
         assert DRIVE_MODE_USER == user_mode
+        assert not record
 
         channel_1 = 678
         channel_2 = 910
@@ -72,20 +73,53 @@ class TestSerialPart:
                     .encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        steering, throttle, user_mode = serial_part.run_threaded()
+        steering, throttle, user_mode, record = serial_part.run_threaded()
         assert steering != 0
         assert steering != 0
         assert DRIVE_MODE_USER == user_mode
+        assert record
 
         arduino.put(b'\ninvalid\n')
         time.sleep(0.001)
-        new_steering, new_throttle, new_user_mode = serial_part.run_threaded()
+        new_steering, new_throttle, new_user_mode, record = serial_part.run_threaded()
         assert new_steering == steering
         assert new_throttle == throttle
         assert new_user_mode == user_mode
 
+    def test_switch_record(self, serial_part: SerialPart, arduino: Queue) -> None:
+        _, _, _, record = serial_part.run_threaded()
+        assert not record
+
+        # Switch off
+        channel_5 = 998
+        arduino.put(f'12345,123,123,123,123,{channel_5},123,50\n'.encode(encoding='utf-8'))
+
+        time.sleep(0.001)
+        _, _, _, record = serial_part.run_threaded()
+        assert not record
+
+        # Switch on
+        channel_5 = 1987
+        arduino.put(f'12345,123,123,123,123,{channel_5},123,50\n'.encode(encoding='utf-8'))
+        time.sleep(0.001)
+        _, _, _, record = serial_part.run_threaded()
+        assert record
+
+        channel_5 = 1850
+        arduino.put(f'12345,123,123,123,123,{channel_5},123,50\n'.encode(encoding='utf-8'))
+        time.sleep(0.001)
+        _, _, _, record = serial_part.run_threaded()
+        assert record
+
+        # Switch off
+        channel_5 = 1003
+        arduino.put(f'12345,123,123,123,123,{channel_5},123,50\n'.encode(encoding='utf-8'))
+        time.sleep(0.001)
+        _, _, _, record = serial_part.run_threaded()
+        assert not record
+
     def test_switch_user_mode(self, serial_part: SerialPart, arduino: Queue) -> None:
-        _, _, user_mode = serial_part.run_threaded()
+        _, _, user_mode, _ = serial_part.run_threaded()
         assert DRIVE_MODE_USER == user_mode
 
         # Switch off
@@ -93,31 +127,31 @@ class TestSerialPart:
         arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        _, _, user_mode = serial_part.run_threaded()
+        _, _, user_mode, record = serial_part.run_threaded()
         assert DRIVE_MODE_USER == user_mode
 
         # Switch on
         channel_6 = 1987
         arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
-        _, _, user_mode = serial_part.run_threaded()
+        _, _, user_mode, record = serial_part.run_threaded()
         assert DRIVE_MODE_PILOT == user_mode
 
         channel_6 = 1850
         arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
-        _, _, user_mode = serial_part.run_threaded()
+        _, _, user_mode, record = serial_part.run_threaded()
         assert DRIVE_MODE_PILOT == user_mode
 
         # Switch off
         channel_6 = 1003
         arduino.put(f'12345,123,123,123,123,123,{channel_6},50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
-        _, _, user_mode = serial_part.run_threaded()
+        _, _, user_mode, record = serial_part.run_threaded()
         assert DRIVE_MODE_USER == user_mode
 
     def test_radio_angle(self, serial_part: SerialPart, arduino: Queue) -> None:
-        angle, _, _ = serial_part.run_threaded()
+        angle, _, _, _ = serial_part.run_threaded()
         assert 0.0 == angle
 
         # Over Left
@@ -125,7 +159,7 @@ class TestSerialPart:
         arduino.put(f'123,{channel_1},123,123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        angle, _, _ = serial_part.run_threaded()
+        angle, _, _, _ = serial_part.run_threaded()
         assert angle == -1.0
 
         # Left
@@ -133,7 +167,7 @@ class TestSerialPart:
         arduino.put(f'123,{channel_1},123,123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        angle, _, _ = serial_part.run_threaded()
+        angle, _, _, _ = serial_part.run_threaded()
         assert -1.0 < angle < -0.9
 
         # Middle
@@ -141,7 +175,7 @@ class TestSerialPart:
         arduino.put(f'123,{channel_1},123,123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        angle, _, _ = serial_part.run_threaded()
+        angle, _, _, _ = serial_part.run_threaded()
         assert -0.1 < angle < 0.1
 
         # Right
@@ -149,7 +183,7 @@ class TestSerialPart:
         arduino.put(f'123,{channel_1},123,123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        angle, _, _ = serial_part.run_threaded()
+        angle, _, _, _ = serial_part.run_threaded()
         assert 1.0 > angle > 0.9
 
         # Over Right
@@ -157,11 +191,11 @@ class TestSerialPart:
         arduino.put(f'123,{channel_1},123,123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        angle, _, _ = serial_part.run_threaded()
+        angle, _, _, _ = serial_part.run_threaded()
         assert angle == 1.0
 
     def test_radio_throttle(self, serial_part: SerialPart, arduino: Queue) -> None:
-        throttle, _, _ = serial_part.run_threaded()
+        throttle, _, _, _ = serial_part.run_threaded()
         assert 0.0 == throttle
 
         # Over down
@@ -169,7 +203,7 @@ class TestSerialPart:
         arduino.put(f'123,123,{channel_2},123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        throttle, _, _ = serial_part.run_threaded()
+        throttle, _, _, _ = serial_part.run_threaded()
         assert throttle == -1.0
 
         # Left
@@ -177,7 +211,7 @@ class TestSerialPart:
         arduino.put(f'123,123,{channel_2},123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        _, throttle, _ = serial_part.run_threaded()
+        _, throttle, _, _ = serial_part.run_threaded()
         assert -1.0 < throttle < -0.9
 
         # Stop
@@ -185,7 +219,7 @@ class TestSerialPart:
         arduino.put(f'123,123,{channel_2},123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        _, throttle, _ = serial_part.run_threaded()
+        _, throttle, _, _ = serial_part.run_threaded()
         assert -0.1 < throttle < 0.1
 
         # Up
@@ -193,7 +227,7 @@ class TestSerialPart:
         arduino.put(f'123,123,{channel_2},123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        _, throttle, _ = serial_part.run_threaded()
+        _, throttle, _, _ = serial_part.run_threaded()
         assert 1.0 > throttle > 0.9
 
         # Over up
@@ -201,5 +235,5 @@ class TestSerialPart:
         arduino.put(f'123,123,{channel_2},123,123,123,123,50\n'.encode(encoding='utf-8'))
 
         time.sleep(0.001)
-        _, throttle, _ = serial_part.run_threaded()
+        _, throttle, _, _ = serial_part.run_threaded()
         assert throttle == 1.0

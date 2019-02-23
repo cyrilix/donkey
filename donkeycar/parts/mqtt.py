@@ -17,6 +17,7 @@ from donkeycar.parts.part import Part
 from donkeycar.vehicle import MetricsPublisher
 
 USER_MODE = 'user/mode'
+CTRL_RECORD = 'ctrl/record'
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,8 @@ class MqttMetricsPublisher(MetricsPublisher):
         self._send_record(record)
 
     def _send_record(self, data):
+        if CTRL_RECORD in data and not data[CTRL_RECORD]:
+            return
         json_data = {}
         self._current_idx += 1
 
