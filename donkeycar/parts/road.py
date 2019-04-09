@@ -1,6 +1,6 @@
 import logging
 from collections import namedtuple
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import cv2
 import numpy as np
@@ -284,7 +284,8 @@ class RoadEllipsePart(Part):
 class RoadDebugPart(Part):
     IMG_ROAD = "img/road"
 
-    def run(self, road_shape: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]], img: ndarray) -> ndarray:
+    def run(self, road_shape: Shape, horizon: Tuple[Tuple[int, int], Tuple[int, int]], img: ndarray) \
+            -> ndarray:
         try:
             if not road_shape:
                 return np.zeros(img.shape, dtype=img.dtype)
@@ -296,7 +297,8 @@ class RoadDebugPart(Part):
             road_img = cv2.addWeighted(src1=img.copy(), alpha=0.7,
                                        src2=mask, beta=0.3,
                                        gamma=0)
-            road_img = cv2.line(img=road_img, pt1=horizon[0], pt2=horizon[1], color=(0, 0, 255), thickness=2)
+            if horizon:
+                road_img = cv2.line(img=road_img, pt1=horizon[0], pt2=horizon[1], color=(0, 0, 255), thickness=2)
             return road_img
         except:
             logging.exception("Unexpected error")
@@ -316,7 +318,7 @@ class ComponentRoadPart(Part):
         self._gray_part = ConvertToGrayPart()
         self._bbox_part = BoundingBoxPart(input_img_key='', output_img_key='')
         self._histogram_part = HistogramPart()
-        self._gray2_part = ThresholdPart()
+        self._threshold_part = ThresholdPart(lower_bound=200, upper_bound=250)
         self._blur_part = BlurPart(input_key="", output_key="")
         self._canny_part = CannyPart(input_img_key='', output_img_key='')
         road_config = RoadConfigController(enable=True,
@@ -335,7 +337,7 @@ class ComponentRoadPart(Part):
             img_gray = self._gray_part.run(img)
             bbox = self._bbox_part.run(img_gray, road_contour=self._last_road_contour)
             histogram = self._histogram_part.run(bbox)
-            gray2 = self._gray2_part.run(histogram)
+            gray2 = self._threshold_part.run(histogram)
             blur = self._blur_part.run(gray2)
             canny = self._canny_part.run(blur)
             road_contour, horizon = self._road_part.run(canny)
@@ -354,3 +356,68 @@ class ComponentRoadPart(Part):
     def get_outputs_keys(self) -> List[str]:
         return [ConvertToGrayPart.IMG_GRAY_RAW, ThresholdPart.IMG_THRESHOLD, BlurPart.IMG_BLUR, CannyPart.IMG_CANNY,
                 RoadPart.ROAD_CONTOUR, RoadPart.ROAD_HORIZON, RoadDebugPart.IMG_ROAD, RoadEllipsePart.ROAD_ELLIPSE]
+
+
+class ComponentRoadPart2(Part):
+
+    def __init__(self, input_keys=[CAM_IMAGE]):
+        self._input_keys = input_keys
+        self._gray_part = ConvertToGrayPart()
+        self._bbox_part = BoundingBoxPart(input_img_key='', output_img_key='')
+        self._histogram_part = HistogramPart()
+        self._threshold_part = ThresholdPart(lower_bound=200, upper_bound=250)
+        self._road_debug_part = RoadDebugPart()
+        self._road_ellipse_part = RoadEllipsePart()
+        self._last_road_contour = None
+        self._min_contour_arc_length = 200
+        self._approx_poly_epsilon_factor: float = 0.01
+        self._kernel_cleaning = np.ones((2, 2), np.uint8)
+
+    def run(self, img: np.ndarray) -> \
+            (ndarray, ndarray, ndarray,  ndarray, Shape, Tuple[Tuple[int, int]], ndarray, Ellipse):
+        try:
+            img_gray = self._gray_part.run(img)
+            bbox = self._bbox_part.run(img_gray, road_contour=self._last_road_contour)
+            histogram = self._histogram_part.run(bbox)
+            threshold = self._threshold_part.run(histogram)
+
+            img_clean = threshold.copy()
+            img_clean = cv2.dilate(img_clean, kernel=self._kernel_cleaning, iterations=1)
+            img_clean = cv2.erode(img_clean, kernel=self._kernel_cleaning, iterations=2)
+            img_clean = cv2.dilate(img_clean, kernel=self._kernel_cleaning, iterations=4)
+            img_clean = cv2.rectangle(img_clean, pt1=(0, 0), pt2=(img_clean.shape[1], 40), color=255,
+                                      thickness=cv2.FILLED)
+            img_clean = cv2.rectangle(img_clean, pt1=(0, 100), pt2=(img_clean.shape[1], img_clean.shape[0]),
+                                      color=255,
+                                      thickness=cv2.FILLED)
+
+            road_contour = self._find_road_contour(img_clean)
+
+            if road_contour:
+                self._last_road_contour = road_contour
+            road_ellipse = self._road_ellipse_part.run(road_contour)
+            road_debug = self._road_debug_part.run(road_shape=road_contour, horizon=None, img=img)
+            return img_gray, threshold, road_contour, road_debug, road_ellipse
+        except:
+            logging.exception("Unexpected error")
+            return np.zeros(img.shape, dtype=img.dtype)
+
+    def _find_road_contour(self, img):
+        (_, cntrs, _) = cv2.findContours(np.invert(img), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # keep idx with perim > 200
+        contrs = [c for c in cntrs if cv2.arcLength(c, True) > self._min_contour_arc_length]
+
+        cntr = contours.sort_contours(contrs, method='bottom-to-top')[0][0]
+        epsilon = self._approx_poly_epsilon_factor * cv2.arcLength(cntr, True)
+        approx = cv2.approxPolyDP(cntr, epsilon, True)
+        track = [(x[0, 0], x[0, 1]) for x in list(approx[:, :])]
+
+        return track
+
+    def get_inputs_keys(self) -> List[str]:
+        return self._input_keys
+
+    def get_outputs_keys(self) -> List[str]:
+        return [ConvertToGrayPart.IMG_GRAY_RAW, ThresholdPart.IMG_THRESHOLD,
+                RoadPart.ROAD_CONTOUR, RoadDebugPart.IMG_ROAD, RoadEllipsePart.ROAD_ELLIPSE]

@@ -183,6 +183,12 @@ class ThresholdPart(Part):
         mask_white = cv2.inRange(img, self._lower_bound, self._upper_bound)
         return mask_white
 
+    @staticmethod
+    def _max_value(img: ndarray) -> int:
+        n = 5
+        center = [slice(i-n, i+n+1) for i in img]
+        return np.max(img[72:82, 72:82])
+
     def get_inputs_keys(self) -> List[str]:
         return [self._input]
 
