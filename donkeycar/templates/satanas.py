@@ -13,7 +13,7 @@ import logging
 from docopt import docopt
 
 import donkeycar as dk
-from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle, WiringPiPWM
+from donkeycar.parts.actuator import PWMSteering, PWMThrottle, WiringPiPWM
 from donkeycar.parts.camera import PiCamera
 from donkeycar.parts.indicators import UserModeIndicatorLight
 from donkeycar.templates.fousduvolant_base import BaseVehicle
@@ -29,7 +29,7 @@ class Satanas(BaseVehicle):
                                left_pulse=cfg.STEERING_LEFT_PWM,
                                right_pulse=cfg.STEERING_RIGHT_PWM)
 
-        throttle_controller = PCA9685(cfg.THROTTLE_CHANNEL)
+        throttle_controller = WiringPiPWM(cfg.THROTTLE_PIN)
         throttle = PWMThrottle(controller=throttle_controller,
                                max_pulse=cfg.THROTTLE_FORWARD_PWM,
                                zero_pulse=cfg.THROTTLE_STOPPED_PWM,
