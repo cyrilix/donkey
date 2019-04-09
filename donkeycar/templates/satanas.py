@@ -13,7 +13,7 @@ import logging
 from docopt import docopt
 
 import donkeycar as dk
-from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
+from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle, WiringPiPWM
 from donkeycar.parts.camera import PiCamera
 from donkeycar.parts.indicators import UserModeIndicatorLight
 from donkeycar.templates.fousduvolant_base import BaseVehicle
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class Satanas(BaseVehicle):
 
     def _configure_car_hardware(self, cfg):
-        steering_controller = PCA9685(cfg.STEERING_CHANNEL)
+        steering_controller = WiringPiPWM(cfg.STEERING_PIN)
         steering = PWMSteering(controller=steering_controller,
                                left_pulse=cfg.STEERING_LEFT_PWM,
                                right_pulse=cfg.STEERING_RIGHT_PWM)

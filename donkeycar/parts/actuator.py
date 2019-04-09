@@ -45,6 +45,32 @@ class PCA9685:
         self.set_pulse(pulse)
 
 
+class WiringPiPWM:
+    """ Soft controller based on wiringpi library
+    """
+
+    def __init__(self, pin: int, pwm_range=100):
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        self._pin = pin
+
+        GPIO.setup(self._pin, GPIO.OUT, initial=GPIO.LOW)
+
+        wiringpi.wiringPiSetupGpio()
+        wiringpi.softPwmCreate(self._pin, 0, pwm_range)
+
+    def set_pulse(self, pulse):
+        wiringpi.softPwmWrite(self._pin, pulse)
+
+    def _stop(self):
+        logger.debug('motor_stop')
+        wiringpi.softPwmWrite(self._pin, 0)
+
+    def shutdown(self):
+        self._stop()
+        GPIO.cleanup()
+
+
 class PWMSteering(Part):
     """
     Wrapper over a PWM motor cotnroller to convert angles to PWM pulses.
