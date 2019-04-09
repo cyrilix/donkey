@@ -32,7 +32,7 @@ class UserModeIndicatorLight(ThreadedPart):
     def update(self):
         pass
 
-    def run_threaded(self, **kw):
+    def run_threaded(self):
         pass
 
     def run(self, user_mode: str, road_ellipse: Ellipse, ctrl_record: bool) -> None:
