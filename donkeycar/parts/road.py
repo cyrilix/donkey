@@ -370,7 +370,7 @@ class ComponentRoadPart2(Part):
         self._road_ellipse_part = RoadEllipsePart()
         self._last_road_contour = None
         self._min_contour_arc_length = 200
-        self._approx_poly_epsilon_factor: float = 0.01
+        self._approx_poly_epsilon_factor = 0.01
         self._kernel_cleaning = np.ones((2, 2), np.uint8)
 
     def run(self, img: np.ndarray) -> \
