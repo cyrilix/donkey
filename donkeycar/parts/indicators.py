@@ -32,10 +32,7 @@ class UserModeIndicatorLight(ThreadedPart):
     def update(self):
         pass
 
-    def run_threaded(self):
-        pass
-
-    def run(self, user_mode: str, road_ellipse: Ellipse, ctrl_record: bool) -> None:
+    def run_threaded(self, user_mode: str, road_ellipse: Ellipse, ctrl_record: bool) -> None:
         if ctrl_record and time.time() > self._next_blink:
             self._next_blink = time.time() + self._blink_delta
         if self._blink_on and ctrl_record:
