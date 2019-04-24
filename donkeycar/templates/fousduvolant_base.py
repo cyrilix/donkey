@@ -3,14 +3,13 @@ import platform
 
 from donkeycar import Vehicle
 from donkeycar.parts.actuator import ANGLE, THROTTLE
-from donkeycar.parts.angle import AngleConfigController, PILOT_ANGLE, \
+from donkeycar.parts.angle import PILOT_ANGLE, \
     AngleRoadPart, RoadEllipseDebugPart
 from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE, USER_THROTTLE, USER_ANGLE
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
 from donkeycar.parts.mqtt import USER_MODE
-from donkeycar.parts.road import ComponentRoadPart
-from donkeycar.parts.throttle import ThrottleControllerFixedSpeed, \
-    PILOT_THROTTLE, ThrottleConfigController, ThrottleEllipsePart
+from donkeycar.parts.road import ComponentRoadPart2
+from donkeycar.parts.throttle import PILOT_THROTTLE, ThrottleConfigController, ThrottleEllipsePart
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.web_controller.web import LocalWebController
 
@@ -45,7 +44,7 @@ class BaseVehicle(Vehicle):
         """
 
         self._configure_camera(cfg)
-        self.register(ComponentRoadPart())
+        self.register(ComponentRoadPart2())
 
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
