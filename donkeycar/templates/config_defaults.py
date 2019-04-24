@@ -32,6 +32,7 @@ ARDUINO_SERIAL_PORT = '/dev/serial0'
 ARDUINO_SERIAL_BAUDRATE = 115200
 
 # STEERING
+STEERING_CHANNEL = 0
 # See http://wiringpi.com/pins/ for pin mapping
 STEERING_PIN = 0
 TX_STEERING_MIN = 1060
@@ -42,6 +43,7 @@ STEERING_RIGHT_PWM = ((TX_STEERING_MIN) / (16666 / 4095))
 ############
 # THROTTLE #
 ############
+THROTTLE_CHANNEL = 1
 # See http://wiringpi.com/pins/ for pin mapping
 THROTTLE_PIN = 2
 THROTTLE_FORWARD_PWM = 400
