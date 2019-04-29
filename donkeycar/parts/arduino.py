@@ -88,7 +88,7 @@ class SerialPart(ThreadedPart):
         pass
 
     def _process_channel_5(self, value):
-        if value > 1800:
+        if value < 1800:
             if not self._ctrl_record:
                 logger.info('Update channel 5 with value %s, record: %s', True, False)
                 self._ctrl_record = True

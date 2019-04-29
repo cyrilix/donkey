@@ -67,7 +67,7 @@ class TestSerialPart:
         channel_2 = 910
         channel_3 = 1112
         channel_4 = 1678
-        channel_5 = 1910
+        channel_5 = 1410
         channel_6 = 112
         arduino.put(f'12345,{channel_1},{channel_2},{channel_3},{channel_4},{channel_5},{channel_6},50\n'
                     .encode(encoding='utf-8'))
@@ -96,27 +96,27 @@ class TestSerialPart:
 
         time.sleep(0.001)
         _, _, _, record = serial_part.run_threaded()
-        assert not record
+        assert record
 
         # Switch on
         channel_5 = 1987
         arduino.put(f'12345,123,123,123,123,{channel_5},123,50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
         _, _, _, record = serial_part.run_threaded()
-        assert record
+        assert not record
 
         channel_5 = 1850
         arduino.put(f'12345,123,123,123,123,{channel_5},123,50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
         _, _, _, record = serial_part.run_threaded()
-        assert record
+        assert not record
 
         # Switch off
         channel_5 = 1003
         arduino.put(f'12345,123,123,123,123,{channel_5},123,50\n'.encode(encoding='utf-8'))
         time.sleep(0.001)
         _, _, _, record = serial_part.run_threaded()
-        assert not record
+        assert record
 
     def test_switch_user_mode(self, serial_part: SerialPart, arduino: Queue) -> None:
         _, _, user_mode, _ = serial_part.run_threaded()
