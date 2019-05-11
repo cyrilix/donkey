@@ -1,11 +1,14 @@
 import logging
 import platform
+from pathlib import Path
 
 from donkeycar import Vehicle
 from donkeycar.parts.actuator import ANGLE, THROTTLE
 from donkeycar.parts.angle import PILOT_ANGLE, \
     AngleRoadPart, RoadEllipseDebugPart
 from donkeycar.parts.arduino import SerialPart, DRIVE_MODE_USER, DRIVE_MODE_LOCAL_ANGLE, USER_THROTTLE, USER_ANGLE
+from donkeycar.parts.camera import CAM_IMAGE
+from donkeycar.parts.keras2 import KerasPilot
 from donkeycar.parts.mqtt import MultiProcessingMetringPublisher
 from donkeycar.parts.mqtt import USER_MODE
 from donkeycar.parts.road import ComponentRoadPart2
@@ -99,5 +102,8 @@ class BaseVehicle(Vehicle):
         self.register(ThrottleEllipsePart(throttle_config_controller=config_controller))
 
     def _configure_angle_part(self, cfg):
-        self.register(AngleRoadPart())
+        if 'keras' == cfg.ANGLE_ALGO:
+            self.register(KerasPilot(img_input=CAM_IMAGE, model_path=Path(cfg.KERAS_MODEL)))
+        else:
+            self.register(AngleRoadPart())
         self.register(RoadEllipseDebugPart())

@@ -102,6 +102,10 @@ NB_CONTOURS_TO_USE = 1
 OUT_ZONE_PERCENT = 20
 CENTRAL_ZONE_PERCENT = 20
 
+#ANGLE_ALGO = 'opencv'
+ANGLE_ALGO = 'keras'
+KERAS_MODEL = '/home/pi/model_cat'
+
 ########
 # MQTT #
 ########
