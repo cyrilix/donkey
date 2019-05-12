@@ -84,7 +84,7 @@ class SerialPart(ThreadedPart):
             value = MIN_PWM_THROTTLE
         elif value > MAX_PWM_THROTTLE:
             value = MAX_PWM_THROTTLE
-        if 3 <= self._distance_cm <= 30:
+        if 1 <= self._distance_cm <= 50:
             self._user_throttle = -0.99
         else:
             self._user_throttle = ((value - MIN_PWM_THROTTLE) / (MAX_PWM_THROTTLE - MIN_PWM_THROTTLE)) * 2.0 - 1.0
