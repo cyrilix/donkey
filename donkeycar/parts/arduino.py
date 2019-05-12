@@ -14,6 +14,8 @@ DRIVE_MODE_LOCAL_ANGLE = 'local_angle'
 USER_THROTTLE = 'user/throttle'
 USER_ANGLE = 'user/angle'
 
+DISTANCE_CAPTOR = 'captor/distance'
+
 SHOCK = 'shock'
 
 PWM_THROTTLE = 'pwm/throttle'
@@ -33,7 +35,7 @@ class SerialPart(ThreadedPart):
     def __init__(self, port="/dev/ttyS0", baudrate=115200):
         self._line_regex = \
             re.compile('(?P<timestamp>\d+),(?P<channel_1>\d+),(?P<channel_2>\d+),(?P<channel_3>\d+),(?P<channel_4>\d+),'
-                       '(?P<channel_5>\d+),(?P<channel_6>\d+),(?P<frequency>\d+)')
+                       '(?P<channel_5>\d+),(?P<channel_6>\d+),(?P<frequency>\d+),(?P<distance_cm>\d+)')
         self._serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
         self._user_angle = 0.0
         self._user_throttle = 0.0
@@ -41,6 +43,7 @@ class SerialPart(ThreadedPart):
         self._ctrl_record = False
         self._on = True
         self._button_is_pushed = False
+        self._distance_cm = -1
 
     def update(self):
         logger.info("Start SerialPart")
@@ -64,6 +67,8 @@ class SerialPart(ThreadedPart):
                     self._process_channel_5(int(groups['channel_5']))
                 if 'channel_6' in groups:
                     self._process_channel_6(int(groups['channel_6']))
+                if 'distance_cm' in groups:
+                    self._process_distance(int(groups['distance_cm']))
             except Exception as error:
                 logging.exception("Unexpected error: %s", error)
 
@@ -107,8 +112,11 @@ class SerialPart(ThreadedPart):
                 logger.info('Update channel 6 with value %s, new user_mode: %s', value, DRIVE_MODE_USER)
             self._user_mode = DRIVE_MODE_USER
 
-    def run_threaded(self) -> (int, int, str, bool):
-        return self._user_angle, self._user_throttle, self._user_mode, self._ctrl_record
+    def _process_distance(self, value: int):
+        self._distance_cm = value
+
+    def run_threaded(self) -> (int, int, str, bool, ):
+        return self._user_angle, self._user_throttle, self._user_mode, self._ctrl_record, self._distance_cm
 
     def get_inputs_keys(self) -> List[str]:
         return []
@@ -117,7 +125,8 @@ class SerialPart(ThreadedPart):
         return [USER_ANGLE,
                 USER_THROTTLE,
                 USER_MODE,
-                CTRL_RECORD
+                CTRL_RECORD,
+                DISTANCE_CAPTOR
                 ]
 
     def shutdown(self):
@@ -127,3 +136,4 @@ class SerialPart(ThreadedPart):
 
     def run(self, **kw):
         pass
+

@@ -5,6 +5,7 @@ from typing import List
 from paho.mqtt.client import Client, MQTTMessage
 
 from donkeycar.parts.angle import PILOT_ANGLE
+from donkeycar.parts.arduino import DISTANCE_CAPTOR
 from donkeycar.parts.mqtt import MqttController
 from donkeycar.parts.part import Part
 from donkeycar.parts.road import RoadEllipsePart, Ellipse
@@ -171,9 +172,14 @@ class ThrottleEllipsePart(Part):
         self._min_throttle = 0.4
         self._max_throttle = 0.8
 
-    def run(self, road_ellipse: Ellipse):
+    def run(self, road_ellipse: Ellipse, distance_cm: int):
+        if 3 <= distance_cm <= 30:
+            # Negative value in order to break
+            return -0.5
+        
         if not road_ellipse:
             return self._throttle_config.min_speed
+
         throttle_on_trust = self._compute_throttle_on_trust(road_ellipse)
         throttle_on_ellipse_ratio = self._compute_throttle_on_ellipse_ration(road_ellipse)
         throttle = throttle_on_trust * throttle_on_ellipse_ratio
@@ -196,7 +202,7 @@ class ThrottleEllipsePart(Part):
         return axes[1] / axes[0]
 
     def get_inputs_keys(self) -> List[str]:
-        return [RoadEllipsePart.ROAD_ELLIPSE]
+        return [RoadEllipsePart.ROAD_ELLIPSE, DISTANCE_CAPTOR]
 
     def get_outputs_keys(self) -> List[str]:
         return [PILOT_THROTTLE]
