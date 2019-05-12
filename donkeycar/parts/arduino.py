@@ -77,7 +77,10 @@ class SerialPart(ThreadedPart):
             value = MIN_PWM_ANGLE
         elif value > MAX_PWM_ANGLE:
             value = MAX_PWM_ANGLE
-        self._user_angle = ((value - MIN_PWM_ANGLE) / (MAX_PWM_ANGLE - MIN_PWM_ANGLE)) * 2.0 - 1.0
+        if 3 <= self._distance_cm <= 30:
+            self._user_throttle = -1
+        else:
+            self._user_angle = ((value - MIN_PWM_ANGLE) / (MAX_PWM_ANGLE - MIN_PWM_ANGLE)) * 2.0 - 1.0
 
     def _process_channel_2(self, value: float):
         if value < MIN_PWM_THROTTLE:
