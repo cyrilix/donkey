@@ -24,9 +24,6 @@ class KerasPilot(Part):
     def run(self, img_arr):
         img_arr = img_arr.reshape((1,) + img_arr.shape)
         angle_binned, throttle = self.model.predict(img_arr)
-        print(angle_binned)
-        #print('throttle', throttle)
-        #angle_certainty = max(angle_binned[0])
         angle_unbinned = dk.utils.linear_unbin(angle_binned)
         return angle_unbinned
 
