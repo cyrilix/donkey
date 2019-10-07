@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 class SerialPart(ThreadedPart):
 
-    def __init__(self, port="/dev/ttyS0", baudrate=115200):
+    def __init__(self, port="/dev/ttyS0", baudrate=115200, use_distance_captor=True):
         self._line_regex = \
             re.compile('(?P<timestamp>\d+),(?P<channel_1>\d+),(?P<channel_2>\d+),(?P<channel_3>\d+),(?P<channel_4>\d+),'
                        '(?P<channel_5>\d+),(?P<channel_6>\d+),(?P<frequency>\d+),(?P<distance_cm>\d+)')
@@ -44,6 +44,7 @@ class SerialPart(ThreadedPart):
         self._on = True
         self._button_is_pushed = False
         self._distance_cm = -1
+        self._use_distance_captor = use_distance_captor
 
     def update(self):
         logger.info("Start SerialPart")
@@ -116,7 +117,8 @@ class SerialPart(ThreadedPart):
             self._user_mode = DRIVE_MODE_USER
 
     def _process_distance(self, value: int):
-        self._distance_cm = value
+        if self._use_distance_captor:
+            self._distance_cm = value
 
     def run_threaded(self) -> (int, int, str, bool, ):
         return self._user_angle, self._user_throttle, self._user_mode, self._ctrl_record, self._distance_cm

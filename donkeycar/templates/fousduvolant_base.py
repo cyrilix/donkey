@@ -81,7 +81,9 @@ class BaseVehicle(Vehicle):
         logger.info("You can now go to <your pi ip address>:8887 to drive your car.")
 
     def _configure_arduino(self, cfg):
-        self.register(part=SerialPart(port=cfg.ARDUINO_SERIAL_PORT, baudrate=cfg.ARDUINO_SERIAL_BAUDRATE))
+        self.register(part=SerialPart(port=cfg.ARDUINO_SERIAL_PORT,
+                                      baudrate=cfg.ARDUINO_SERIAL_BAUDRATE,
+                                      use_distance_captor=cfg.ARDUINO_DISTANCE_CAPTOR_ENABLED))
 
     def _configure_car_hardware(self, cfg):
         pass
