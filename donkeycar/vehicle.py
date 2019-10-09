@@ -119,8 +119,14 @@ class Vehicle:
                 start_time = time.time()
                 loop_count += 1
 
-                self.update_parts()
-                self._publish_metrics(rate_hz)
+                try:
+                    self.update_parts()
+                    self._publish_metrics(rate_hz)
+                except KeyboardInterrupt:
+                    logger.info("Stop vehicle")
+                    self.on = False
+                except Exception as e:
+                    logger.exception("Unexpected error: %s", e,  stack_info=True)
 
                 # stop drive loop if loop_count exceeds max_loopcount
                 if max_loop_count and loop_count > max_loop_count:
