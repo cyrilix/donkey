@@ -49,9 +49,6 @@ class BaseVehicle(Vehicle):
         self._configure_camera(cfg)
         self.register(ComponentRoadPart2())
 
-        # This web controller will create a web server that is capable
-        # of managing steering, throttle, and modes, and more.
-        self.register(LocalWebController())
         self._configure_arduino(cfg)
 
         self._configure_angle_part(cfg)
