@@ -100,6 +100,7 @@ class MqttMetricsPublisher(MetricsPublisher):
 
     def _send_record(self, data):
         if CTRL_RECORD in data and not data[CTRL_RECORD]:
+            self._reset_tub_name()
             return
         json_data = {}
         self._current_idx += 1
